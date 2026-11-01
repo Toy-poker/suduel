@@ -1,0 +1,2108 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SUDUEL</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700;900&family=JetBrains+Mono:wght@400;700&family=Fredoka+One&family=Nunito:wght@700;900&display=swap');
+:root {
+  --bg:#0f0035;
+  --panel:rgba(255,255,255,.1);
+  --border:rgba(167,139,250,.35);
+  --accent-p:#fbbf24;
+  --accent-ai:#f472b6;
+  --cell-bg:rgba(255,255,255,.08);
+  --cell-hover:rgba(167,139,250,.25);
+  --cell-given:rgba(255,255,255,.04);
+  --text:#ffffff;
+  --text-dim:rgba(255,255,255,.35);
+  --text-mid:rgba(255,255,255,.6);
+  --valid:#34d399;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:linear-gradient(135deg,#0f0035 0%,#1a0050 50%,#0f0035 100%);
+  background-attachment:fixed;
+  color:var(--text);font-family:'Nunito',sans-serif;min-height:100vh;
+  display:flex;flex-direction:column;align-items:center;padding:16px 10px 40px;overflow-x:hidden;
+}
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(167,139,250,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(167,139,250,.05) 1px,transparent 1px);
+  background-size:40px 40px;
+}
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse at 20% 30%,rgba(255,60,200,.1) 0%,transparent 50%),
+             radial-gradient(ellipse at 80% 70%,rgba(60,200,255,.1) 0%,transparent 50%);
+}
+
+/* HEADER */
+.game-header{text-align:center;margin-bottom:12px;position:relative;z-index:1;}
+.game-title{font-size:clamp(1.4rem,4vw,2rem);font-weight:900;letter-spacing:.2em;font-family:'Fredoka One',cursive;background:linear-gradient(135deg,#ff6ec7,#a78bfa,#38bdf8);background-size:300% 300%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:neonGrad 4s ease infinite;filter:drop-shadow(0 0 16px rgba(167,139,250,.5));}
+.game-sub{font-size:.62rem;letter-spacing:.2em;color:var(--text-dim);font-family:'JetBrains Mono',monospace;}
+
+/* SCOREBAR */
+.scorebar{display:flex;gap:10px;width:100%;max-width:500px;margin-bottom:10px;position:relative;z-index:1;}
+.score-box{flex:1;border:1px solid var(--border);padding:8px 12px;position:relative;overflow:hidden;transition:all .3s;background:var(--panel);backdrop-filter:blur(10px);border-radius:12px;}
+.score-box::before{content:'';position:absolute;inset:0;opacity:.05;transition:opacity .3s;border-radius:12px;}
+.score-box.player::before{background:var(--accent-p);}
+.score-box.ai::before{background:var(--accent-ai);}
+.score-box.active-turn{border-color:rgba(255,255,255,.5);box-shadow:0 0 24px rgba(167,139,250,.25);}
+.score-box.active-turn::before{opacity:.14;}
+.score-label{font-size:.58rem;letter-spacing:.22em;font-family:'JetBrains Mono',monospace;font-weight:700;}
+.score-box.player .score-label{color:var(--accent-p);}
+.score-box.ai .score-label{color:var(--accent-ai);}
+.score-name{font-size:1.1rem;font-weight:900;margin:1px 0 2px;font-family:'Fredoka One',cursive;letter-spacing:.05em;}
+.score-detail{font-size:.62rem;color:var(--text-mid);font-family:'JetBrains Mono',monospace;}
+.score-detail .mc{font-weight:700;color:var(--text);}
+.turn-dot{width:7px;height:7px;border-radius:50%;position:absolute;top:9px;right:9px;opacity:0;transition:opacity .3s;}
+.score-box.active-turn .turn-dot{opacity:1;animation:pulseDot 1s infinite;}
+.score-box.player .turn-dot{background:var(--accent-p);box-shadow:0 0 10px var(--accent-p);}
+.score-box.ai .turn-dot{background:var(--accent-ai);box-shadow:0 0 10px var(--accent-ai);}
+@keyframes pulseDot{0%,100%{transform:scale(1)}50%{transform:scale(1.8);opacity:.6}}
+.diff-chip{display:inline-block;font-size:.48rem;font-family:'JetBrains Mono',monospace;letter-spacing:.08em;padding:1px 5px;border-radius:4px;margin-left:4px;vertical-align:middle;}
+
+/* STATS BAR */
+.stats-bar{width:100%;max-width:500px;margin-bottom:6px;display:flex;justify-content:flex-end;gap:12px;font-size:.6rem;font-family:'JetBrains Mono',monospace;color:var(--text-dim);letter-spacing:.08em;position:relative;z-index:1;}
+.stats-bar span{color:rgba(255,255,255,.7);}
+
+/* MOVE BAR */
+.move-bar-wrap{width:100%;max-width:500px;margin-bottom:8px;position:relative;z-index:1;}
+.move-bar-label{font-size:.58rem;font-family:'JetBrains Mono',monospace;color:var(--text-dim);letter-spacing:.1em;margin-bottom:3px;}
+.move-bar-bg{height:5px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;}
+.move-bar-fill{height:100%;border-radius:3px;transition:width .4s ease;background:linear-gradient(90deg,#a78bfa,#f472b6);}
+
+/* TIMER */
+.timer-wrap{width:100%;max-width:500px;margin-bottom:6px;height:4px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden;display:none;position:relative;z-index:1;}
+.timer-wrap.active{display:block;}
+.timer-bar{height:100%;border-radius:2px;transition:width .1s linear,background .5s;background:var(--accent-p);}
+
+/* STATUS */
+.status{font-size:.8rem;font-weight:700;letter-spacing:.05em;color:var(--text-mid);margin-bottom:6px;min-height:20px;font-family:'Nunito',sans-serif;text-align:center;position:relative;z-index:1;}
+.status.player-msg{color:#fbbf24;text-shadow:0 0 12px rgba(251,191,36,.4);}
+.status.ai-msg{color:#f472b6;text-shadow:0 0 12px rgba(244,114,182,.4);}
+.status.warn{color:#fb923c;}
+
+/* BOARD */
+.board-wrap{position:relative;margin-bottom:12px;z-index:1;}
+table{border-collapse:collapse;border:2px solid rgba(167,139,250,.6);border-radius:8px;overflow:hidden;box-shadow:0 0 50px rgba(167,139,250,.2),0 0 100px rgba(167,139,250,.1);}
+td{width:42px;height:42px;border:1px solid rgba(167,139,250,.2);text-align:center;vertical-align:middle;position:relative;cursor:pointer;transition:background .12s;background:rgba(255,255,255,.07);user-select:none;}
+td:nth-child(3n){border-right:2px solid rgba(167,139,250,.5);}
+tr:nth-child(3n) td{border-bottom:2px solid rgba(167,139,250,.5);}
+td.given{background:rgba(255,255,255,.03);cursor:default;}
+td.given .cell-num{color:rgba(255,255,255,.6);font-size:1rem;font-weight:700;}
+td:not(.given):not(.filled):hover{background:rgba(167,139,250,.2);}
+td.selected{background:rgba(167,139,250,.3)!important;outline:2px solid #a78bfa;outline-offset:-2px;box-shadow:inset 0 0 16px rgba(167,139,250,.3);}
+td.hl-row,td.hl-col,td.hl-box{background:rgba(167,139,250,.08);}
+.cell-num{font-size:1.15rem;font-weight:900;font-family:'Fredoka One',cursive;display:block;line-height:1;}
+td.player-placed .cell-num{color:#fbbf24;text-shadow:0 0 10px rgba(251,191,36,.6);}
+td.ai-placed .cell-num{color:#f472b6;text-shadow:0 0 10px rgba(244,114,182,.6);}
+td.last-move-player{outline:2px solid #fbbf24;outline-offset:-2px;background:rgba(251,191,36,.15)!important;}
+td.last-move-ai{outline:2px solid #f472b6;outline-offset:-2px;background:rgba(244,114,182,.15)!important;}
+td.last-move-player::after,td.last-move-ai::after{content:'';position:absolute;inset:0;pointer-events:none;animation:lastGlow 1.8s ease-in-out infinite;}
+td.last-move-player::after{background:rgba(251,191,36,.1);}
+td.last-move-ai::after{background:rgba(244,114,182,.1);}
+@keyframes lastGlow{0%,100%{opacity:1}50%{opacity:.15}}
+td.just-placed{animation:popIn .3s ease-out;}
+@keyframes popIn{0%{transform:scale(1.35);opacity:.5}100%{transform:scale(1);opacity:1}}
+td.valid-hint{background:rgba(52,211,153,.25)!important;outline:1px solid rgba(52,211,153,.6);outline-offset:-1px;}
+td.timeout-flash{animation:tFlash .15s ease-in-out 3;}
+@keyframes tFlash{0%,100%{}50%{background:rgba(255,80,80,.3)!important}}
+
+/* AI OVERLAY */
+.ai-overlay{display:none;position:absolute;inset:0;z-index:20;background:transparent;align-items:flex-start;justify-content:center;padding-top:6px;}
+.ai-overlay.visible{display:flex;}
+.ai-thinking{font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:700;color:#f472b6;letter-spacing:.15em;animation:blink .7s infinite;text-shadow:0 0 12px rgba(244,114,182,.6);}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+
+/* AI INSIGHT */
+.ai-insight{font-size:.65rem;font-family:'JetBrains Mono',monospace;color:#f472b6;letter-spacing:.07em;margin-bottom:6px;min-height:15px;text-align:center;opacity:.85;position:relative;z-index:1;}
+
+/* NUM PICKER */
+.num-picker{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;justify-content:center;max-width:420px;position:relative;z-index:1;}
+.num-btn{width:40px;height:40px;border:2px solid rgba(167,139,250,.35);background:rgba(255,255,255,.08);color:#fff;font-family:'Fredoka One',cursive;font-size:1.1rem;cursor:pointer;transition:all .14s;border-radius:10px;backdrop-filter:blur(4px);}
+.num-btn:hover{border-color:#a78bfa;color:#a78bfa;background:rgba(167,139,250,.2);box-shadow:0 0 16px rgba(167,139,250,.3);transform:translateY(-2px);}
+.num-btn.active{border-color:#fbbf24;background:rgba(251,191,36,.2);color:#fbbf24;box-shadow:0 0 16px rgba(251,191,36,.4);transform:translateY(-2px);}
+.num-btn:disabled{opacity:.2;cursor:not-allowed;border-color:rgba(255,255,255,.1);color:var(--text-dim);background:transparent;transform:none;box-shadow:none;}
+
+/* CONTROLS */
+.controls{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;justify-content:center;position:relative;z-index:1;}
+.btn{padding:8px 16px;border:2px solid rgba(167,139,250,.35);background:rgba(255,255,255,.08);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:.8rem;letter-spacing:.05em;cursor:pointer;transition:all .18s;border-radius:10px;backdrop-filter:blur(4px);}
+.btn:hover{border-color:#a78bfa;color:#a78bfa;box-shadow:0 0 14px rgba(167,139,250,.25);transform:translateY(-1px);}
+.btn.primary{border-color:rgba(251,191,36,.5);color:#fbbf24;background:rgba(251,191,36,.1);}
+.btn.primary:hover{background:rgba(251,191,36,.2);box-shadow:0 0 18px rgba(251,191,36,.3);}
+.btn.danger{border-color:rgba(244,114,182,.4);color:#f472b6;background:rgba(244,114,182,.08);}
+.btn.danger:hover{background:rgba(244,114,182,.18);}
+.btn.green{border-color:rgba(52,211,153,.4);color:#34d399;background:rgba(52,211,153,.08);}
+.btn.green.on{background:rgba(52,211,153,.2);box-shadow:0 0 14px rgba(52,211,153,.25);}
+.btn:disabled{opacity:.25;cursor:not-allowed;transform:none;box-shadow:none;}
+
+/* LEGEND */
+.legend{display:flex;gap:16px;font-size:.62rem;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-dim);letter-spacing:.05em;position:relative;z-index:1;}
+.legend-item{display:flex;align-items:center;gap:5px;}
+.legend-dot{width:8px;height:8px;border-radius:3px;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:linear-gradient(135deg,#0f0035 0%,#1a0050 50%,#0f0035 100%);
+  background-attachment:fixed;
+  color:var(--text);font-family:'Noto Serif JP',serif;min-height:100vh;
+  display:flex;flex-direction:column;align-items:center;padding:16px 10px 40px;overflow-x:hidden;
+}
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(167,139,250,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(167,139,250,.04) 1px,transparent 1px);
+  background-size:40px 40px;
+}
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse at 20% 30%,rgba(255,60,200,.08) 0%,transparent 50%),
+             radial-gradient(ellipse at 80% 70%,rgba(60,200,255,.08) 0%,transparent 50%);
+}
+
+/* HEADER */
+.game-header{text-align:center;margin-bottom:12px;position:relative;z-index:1;}
+.game-title{font-size:clamp(1.2rem,4vw,1.9rem);font-weight:900;letter-spacing:.3em;font-family:'Fredoka One',cursive;background:linear-gradient(135deg,#ff6ec7,#a78bfa,#38bdf8);background-size:300% 300%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:neonGrad 4s ease infinite;filter:drop-shadow(0 0 12px rgba(167,139,250,.4));}
+.game-sub{font-size:.62rem;letter-spacing:.2em;color:var(--text-dim);font-family:'JetBrains Mono',monospace;}
+
+/* SCOREBAR */
+.scorebar{display:flex;gap:10px;width:100%;max-width:500px;margin-bottom:10px;position:relative;z-index:1;}
+.score-box{flex:1;border:1px solid var(--border);padding:8px 12px;position:relative;overflow:hidden;transition:border-color .3s;background:var(--panel);backdrop-filter:blur(10px);border-radius:8px;}
+.score-box::before{content:'';position:absolute;inset:0;opacity:.05;transition:opacity .3s;}
+.score-box.player::before{background:var(--accent-p);}
+.score-box.ai::before{background:var(--accent-ai);}
+.score-box.active-turn{border-color:rgba(255,255,255,.4);box-shadow:0 0 20px rgba(167,139,250,.2);}
+.score-box.active-turn::before{opacity:.12;}
+.score-label{font-size:.58rem;letter-spacing:.22em;font-family:'JetBrains Mono',monospace;}
+.score-box.player .score-label{color:var(--accent-p);}
+.score-box.ai .score-label{color:var(--accent-ai);}
+.score-name{font-size:1rem;font-weight:700;margin:1px 0 2px;}
+.score-detail{font-size:.62rem;color:var(--text-mid);font-family:'JetBrains Mono',monospace;}
+.score-detail .mc{font-weight:700;color:var(--text);}
+.turn-dot{width:6px;height:6px;border-radius:50%;position:absolute;top:9px;right:9px;opacity:0;transition:opacity .3s;}
+.score-box.active-turn .turn-dot{opacity:1;animation:pulseDot 1s infinite;}
+.score-box.player .turn-dot{background:var(--accent-p);box-shadow:0 0 8px var(--accent-p);}
+.score-box.ai .turn-dot{background:var(--accent-ai);box-shadow:0 0 8px var(--accent-ai);}
+@keyframes pulseDot{0%,100%{transform:scale(1)}50%{transform:scale(1.7);opacity:.6}}
+.diff-chip{display:inline-block;font-size:.48rem;font-family:'JetBrains Mono',monospace;letter-spacing:.08em;padding:1px 5px;border-radius:2px;margin-left:4px;vertical-align:middle;}
+
+/* STATS BAR */
+.stats-bar{width:100%;max-width:500px;margin-bottom:6px;display:flex;justify-content:flex-end;gap:12px;font-size:.58rem;font-family:'JetBrains Mono',monospace;color:var(--text-dim);letter-spacing:.08em;position:relative;z-index:1;}
+.stats-bar span{color:var(--text-mid);}
+
+/* MOVE BAR */
+.move-bar-wrap{width:100%;max-width:500px;margin-bottom:8px;position:relative;z-index:1;}
+.move-bar-label{font-size:.58rem;font-family:'JetBrains Mono',monospace;color:var(--text-dim);letter-spacing:.1em;margin-bottom:3px;}
+.move-bar-bg{height:4px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;}
+.move-bar-fill{height:100%;border-radius:2px;transition:width .4s ease;background:linear-gradient(90deg,#a78bfa,#f472b6);}
+
+/* TIMER */
+.timer-wrap{width:100%;max-width:500px;margin-bottom:6px;height:3px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;display:none;position:relative;z-index:1;}
+.timer-wrap.active{display:block;}
+.timer-bar{height:100%;border-radius:2px;transition:width .1s linear,background .5s;background:var(--accent-p);}
+
+/* STATUS */
+.status{font-size:.72rem;letter-spacing:.08em;color:var(--text-mid);margin-bottom:6px;min-height:20px;font-family:'JetBrains Mono',monospace;text-align:center;position:relative;z-index:1;}
+.status.player-msg{color:var(--accent-p);}
+.status.ai-msg{color:var(--accent-ai);}
+.status.warn{color:#f97;}
+
+/* BOARD */
+.board-wrap{position:relative;margin-bottom:10px;z-index:1;}
+table{border-collapse:collapse;border:2px solid rgba(167,139,250,.5);border-radius:4px;overflow:hidden;box-shadow:0 0 40px rgba(167,139,250,.15);}
+td{width:42px;height:42px;border:1px solid rgba(167,139,250,.15);text-align:center;vertical-align:middle;position:relative;cursor:pointer;transition:background .12s;background:var(--cell-bg);user-select:none;}
+td:nth-child(3n){border-right:2px solid rgba(167,139,250,.4);}
+tr:nth-child(3n) td{border-bottom:2px solid rgba(167,139,250,.4);}
+td.given{background:var(--cell-given);cursor:default;}
+td.given .cell-num{color:rgba(255,255,255,.5);font-size:1rem;}
+td:not(.given):not(.filled):hover{background:var(--cell-hover);}
+td.selected{background:rgba(167,139,250,.2)!important;outline:2px solid #a78bfa;outline-offset:-2px;box-shadow:inset 0 0 12px rgba(167,139,250,.2);}
+td.hl-row,td.hl-col,td.hl-box{background:rgba(167,139,250,.06);}
+.cell-num{font-size:1.1rem;font-weight:700;font-family:'JetBrains Mono',monospace;display:block;line-height:1;}
+td.player-placed .cell-num{color:#fbbf24;text-shadow:0 0 8px rgba(251,191,36,.4);}
+td.ai-placed .cell-num{color:#f472b6;text-shadow:0 0 8px rgba(244,114,182,.4);}
+td.last-move-player{outline:2px solid #fbbf24;outline-offset:-2px;background:rgba(251,191,36,.1)!important;}
+td.last-move-ai{outline:2px solid #f472b6;outline-offset:-2px;background:rgba(244,114,182,.1)!important;}
+td.last-move-player::after,td.last-move-ai::after{content:'';position:absolute;inset:0;pointer-events:none;animation:lastGlow 1.8s ease-in-out infinite;}
+td.last-move-player::after{background:rgba(251,191,36,.12);}
+td.last-move-ai::after{background:rgba(244,114,182,.12);}
+@keyframes lastGlow{0%,100%{opacity:1}50%{opacity:.15}}
+td.just-placed{animation:popIn .3s ease-out;}
+@keyframes popIn{0%{transform:scale(1.35);opacity:.5}100%{transform:scale(1);opacity:1}}
+td.valid-hint{background:rgba(52,211,153,.2)!important;outline:1px solid rgba(52,211,153,.5);outline-offset:-1px;}
+td.timeout-flash{animation:tFlash .15s ease-in-out 3;}
+@keyframes tFlash{0%,100%{}50%{background:rgba(255,80,80,.22)!important}}
+
+/* AI OVERLAY */
+.ai-overlay{display:none;position:absolute;inset:0;z-index:20;background:transparent;align-items:flex-start;justify-content:center;padding-top:6px;}
+.ai-overlay.visible{display:flex;}
+.ai-thinking{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:#f472b6;letter-spacing:.2em;animation:blink .7s infinite;text-shadow:0 0 10px rgba(244,114,182,.5);}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+
+/* AI INSIGHT */
+.ai-insight{font-size:.6rem;font-family:'JetBrains Mono',monospace;color:#f472b6;letter-spacing:.07em;margin-bottom:6px;min-height:15px;text-align:center;opacity:.85;position:relative;z-index:1;}
+
+/* NUM PICKER */
+.num-picker{display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap;justify-content:center;max-width:420px;position:relative;z-index:1;}
+.num-btn{width:38px;height:38px;border:1px solid rgba(167,139,250,.3);background:rgba(255,255,255,.05);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:700;cursor:pointer;transition:all .14s;border-radius:6px;backdrop-filter:blur(4px);}
+.num-btn:hover{border-color:#a78bfa;color:#a78bfa;background:rgba(167,139,250,.15);box-shadow:0 0 12px rgba(167,139,250,.2);}
+.num-btn.active{border-color:#fbbf24;background:rgba(251,191,36,.15);color:#fbbf24;box-shadow:0 0 12px rgba(251,191,36,.3);}
+.num-btn:disabled{opacity:.2;cursor:not-allowed;border-color:rgba(255,255,255,.1);color:var(--text-dim);background:transparent;}
+
+/* CONTROLS */
+.controls{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;justify-content:center;position:relative;z-index:1;}
+.btn{padding:7px 14px;border:1px solid rgba(167,139,250,.3);background:rgba(255,255,255,.05);color:var(--text);font-family:'Noto Serif JP',serif;font-size:.73rem;letter-spacing:.08em;cursor:pointer;transition:all .18s;border-radius:6px;backdrop-filter:blur(4px);}
+.btn:hover{border-color:#a78bfa;color:#a78bfa;box-shadow:0 0 12px rgba(167,139,250,.2);}
+.btn.primary{border-color:rgba(251,191,36,.5);color:#fbbf24;background:rgba(251,191,36,.08);}
+.btn.primary:hover{background:rgba(251,191,36,.16);box-shadow:0 0 16px rgba(251,191,36,.2);}
+.btn.danger{border-color:rgba(244,114,182,.4);color:#f472b6;background:rgba(244,114,182,.06);}
+.btn.danger:hover{background:rgba(244,114,182,.14);}
+.btn.green{border-color:rgba(52,211,153,.4);color:#34d399;background:rgba(52,211,153,.06);}
+.btn.green.on{background:rgba(52,211,153,.16);box-shadow:0 0 12px rgba(52,211,153,.2);}
+.btn:disabled{opacity:.25;cursor:not-allowed;}
+
+/* LEGEND */
+.legend{display:flex;gap:16px;font-size:.6rem;font-family:'JetBrains Mono',monospace;color:var(--text-dim);letter-spacing:.08em;position:relative;z-index:1;}
+.legend-item{display:flex;align-items:center;gap:5px;}
+.legend-dot{width:8px;height:8px;border-radius:2px;}
+
+/* ── START SCREEN ── */
+.start-screen{position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;overflow-y:auto;}
+.start-screen.hidden{display:none;}
+
+/* diff cards */
+.diff-cards{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:24px;}
+.diff-card{width:128px;border:1px solid var(--border);background:var(--panel);padding:16px 12px 14px;cursor:pointer;transition:all .2s;text-align:center;position:relative;overflow:hidden;}
+.diff-card::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .2s;}
+.diff-card.easy{border-color:#4aebb5;} .diff-card.easy::before{background:#4aebb5;}
+.diff-card.normal{border-color:var(--accent-p);} .diff-card.normal::before{background:var(--accent-p);}
+.diff-card.hard{border-color:var(--accent-ai);} .diff-card.hard::before{background:var(--accent-ai);}
+.diff-card:hover::before{opacity:.07;}
+.diff-card.selected::before{opacity:.32;}
+.diff-card.selected.easy{box-shadow:0 0 18px rgba(74,235,181,.2);}
+.diff-card.selected.normal{box-shadow:0 0 18px rgba(232,197,71,.2);}
+.diff-card.selected.hard{box-shadow:0 0 18px rgba(232,71,106,.2);}
+.diff-icon{font-size:1.4rem;display:block;margin-bottom:7px;}
+.diff-badge{font-size:.46rem;letter-spacing:.12em;font-family:'JetBrains Mono',monospace;padding:2px 6px;border-radius:2px;display:inline-block;margin-bottom:5px;}
+.diff-card.easy .diff-badge{background:rgba(74,235,181,.18);color:#4aebb5;}
+.diff-card.normal .diff-badge{background:rgba(232,197,71,.18);color:var(--accent-p);}
+.diff-card.hard .diff-badge{background:rgba(232,71,106,.18);color:var(--accent-ai);}
+.diff-name{font-size:.88rem;font-weight:700;letter-spacing:.1em;margin-bottom:6px;}
+.diff-card.easy .diff-name{color:#4aebb5;}
+.diff-card.normal .diff-name{color:var(--accent-p);}
+.diff-card.hard .diff-name{color:var(--accent-ai);}
+.diff-desc{font-size:.55rem;color:var(--text-mid);font-family:'JetBrains Mono',monospace;line-height:1.5;}
+
+/* order / timer cards */
+.option-cards{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:24px;}
+.option-card{padding:10px 18px;border:1px solid var(--border);background:var(--panel);cursor:pointer;transition:all .18s;text-align:center;position:relative;overflow:hidden;}
+.option-card::before{content:'';position:absolute;inset:0;background:var(--text-mid);opacity:0;transition:opacity .18s;}
+.option-card:hover::before{opacity:.06;}
+.option-card.selected{border-color:rgba(255,255,255,.3);}
+.option-card.selected::before{opacity:.42;}
+.option-card-label{font-size:.55rem;letter-spacing:.12em;font-family:'JetBrains Mono',monospace;color:var(--text-mid);}
+.option-card-val{font-size:.95rem;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text);margin-top:2px;}
+
+/* NEON START SCREEN */
+.start-screen{
+  position:fixed;inset:0;z-index:300;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#0f0035 0%,#1a0050 50%,#0f0035 100%);
+  padding:20px; overflow-y:auto;
+}
+.start-screen.hidden{display:none;}
+.start-neon-grid{
+  position:fixed;inset:0;pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);
+  background-size:40px 40px;
+}
+.start-neon-glow{
+  position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at 20% 50%,rgba(255,60,200,.12) 0%,transparent 60%),
+             radial-gradient(ellipse at 80% 50%,rgba(60,200,255,.12) 0%,transparent 60%);
+}
+.start-neon-nums{position:fixed;inset:0;pointer-events:none;overflow:hidden;}
+.start-neon-num{
+  position:absolute;font-family:'Fredoka One',cursive;color:rgba(255,255,255,.035);
+  font-size:8rem;user-select:none;animation:floatNum 6s ease-in-out infinite;
+}
+.start-inner{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;width:100%;max-width:480px;}
+.start-neon-title{
+  font-family:'Fredoka One',cursive;
+  font-size:clamp(3.5rem,16vw,7rem);
+  letter-spacing:.08em;
+  background:linear-gradient(135deg,#ff6ec7,#a78bfa,#38bdf8,#34d399);
+  background-size:300% 300%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:neonGrad 4s ease infinite;
+  filter:drop-shadow(0 0 30px rgba(167,139,250,.5));
+  text-align:center;line-height:1;
+  margin-bottom:4px;
+}
+.start-neon-sub{
+  font-family:'Nunito',sans-serif;font-size:.7rem;font-weight:700;
+  letter-spacing:.35em;text-transform:uppercase;color:rgba(255,255,255,.4);
+  margin-bottom:32px;text-align:center;
+}
+.start-neon-divider{
+  width:100%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(167,139,250,.4),transparent);
+  margin-bottom:28px;
+}
+.start-neon-section{font-size:.55rem;letter-spacing:.2em;color:rgba(255,255,255,.35);font-family:'JetBrains Mono',monospace;margin-bottom:10px;text-align:center;}
+.start-neon-btns{display:flex;flex-direction:column;gap:10px;width:100%;margin-top:24px;}
+.start-neon-btn{
+  padding:13px;border-radius:8px;font-family:'Nunito',sans-serif;font-weight:900;
+  font-size:.95rem;letter-spacing:.08em;cursor:pointer;transition:all .2s;border:none;
+}
+.start-neon-btn.primary{
+  background:linear-gradient(135deg,#a78bfa,#60a5fa);color:#fff;
+  box-shadow:0 4px 20px rgba(167,139,250,.4);
+}
+.start-neon-btn.primary:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(167,139,250,.5);}
+.start-neon-btn.online{
+  background:rgba(74,235,181,.1);border:1px solid rgba(74,235,181,.4);color:#4aebb5;
+}
+.start-neon-btn.online:hover{background:rgba(74,235,181,.2);box-shadow:0 0 20px rgba(74,235,181,.2);}
+.start-info-btn{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.5);width:45px;height:45px;border-radius:50%;font-size:1.5rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+.start-info-btn:hover{background:rgba(255,255,255,.15);color:#fff;}
+
+@keyframes neonGrad{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+@keyframes floatNum{0%,100%{transform:translateY(0)}50%{transform:translateY(-20px)}}
+
+/* RULE MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,0,53,.9);z-index:600;align-items:center;justify-content:center;backdrop-filter:blur(8px);}
+.modal-overlay.visible{display:flex;}
+.modal{background:rgba(255,255,255,.08);border:1px solid rgba(167,139,250,.3);padding:28px 24px;max-width:420px;width:90%;position:relative;border-radius:16px;backdrop-filter:blur(20px);}
+.modal-title{font-size:1rem;font-weight:700;letter-spacing:.2em;margin-bottom:16px;color:#a78bfa;}
+.modal-body{font-size:.72rem;line-height:1.9;color:var(--text-mid);font-family:'JetBrains Mono',monospace;}
+.modal-body b{color:var(--text);}
+.modal-close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--text-dim);font-size:1.1rem;cursor:pointer;transition:color .18s;}
+.modal-close:hover{color:var(--text);}
+
+/* RESULT */
+.result-overlay{display:none;position:fixed;inset:0;background:rgba(15,0,53,.93);z-index:400;align-items:center;justify-content:center;flex-direction:column;gap:14px;backdrop-filter:blur(8px);}
+.result-overlay.visible{display:flex;}
+.result-title{font-size:clamp(2rem,8vw,3.2rem);font-weight:900;letter-spacing:.2em;text-align:center;font-family:'Fredoka One',cursive;}
+.result-title.win{color:#fbbf24;text-shadow:0 0 30px rgba(251,191,36,.5);}
+.result-title.lose{color:#f472b6;text-shadow:0 0 30px rgba(244,114,182,.5);}
+.result-sub{font-size:.8rem;color:var(--text-mid);font-family:'JetBrains Mono',monospace;letter-spacing:.08em;text-align:center;}
+.result-stats{font-size:.65rem;color:var(--text-dim);font-family:'JetBrains Mono',monospace;letter-spacing:.08em;text-align:center;margin-top:-6px;}
+
+/* REPLAY */
+.replay-overlay{display:none;position:fixed;inset:0;background:rgba(15,0,53,.97);z-index:450;flex-direction:column;align-items:center;padding:20px 12px;overflow-y:auto;backdrop-filter:blur(12px);}
+.replay-overlay.visible{display:flex;}
+.replay-title{font-size:1.2rem;font-weight:900;letter-spacing:.2em;margin-bottom:4px;font-family:'Fredoka One',cursive;background:linear-gradient(135deg,#ff6ec7,#a78bfa,#38bdf8);background-size:300% 300%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:neonGrad 4s ease infinite;}
+.replay-sub{font-size:.6rem;font-family:'JetBrains Mono',monospace;color:var(--text-dim);letter-spacing:.15em;margin-bottom:14px;}
+.replay-step-info{font-family:'JetBrains Mono',monospace;font-size:.67rem;color:var(--text-mid);min-width:220px;text-align:center;}
+.replay-step-info .pc{color:#fbbf24;}
+.replay-step-info .ac{color:#f472b6;}
+.replay-timeline{display:flex;flex-wrap:wrap;gap:3px;max-width:540px;justify-content:center;margin-bottom:12px;}
+.tl-dot{width:16px;height:16px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .13s;display:flex;align-items:center;justify-content:center;font-size:.42rem;font-family:'JetBrains Mono',monospace;color:transparent;}
+.tl-dot.pd{background:rgba(251,191,36,.25);border-color:#fbbf24;}
+.tl-dot.ad{background:rgba(244,114,182,.25);border-color:#f472b6;}
+.tl-dot.gd{background:rgba(255,255,255,.15);border-color:transparent;cursor:default;}
+.tl-dot.cur{transform:scale(1.45);color:#0f0035;}
+.tl-dot.pd.cur{background:#fbbf24;box-shadow:0 0 8px rgba(251,191,36,.6);}
+.tl-dot.ad.cur{background:#f472b6;box-shadow:0 0 8px rgba(244,114,182,.6);}
+/* turning point */
+.tl-dot.pivot{box-shadow:0 0 6px 2px rgba(255,255,255,.35);}
+.replay-board-wrap{margin-bottom:12px;}
+.graph-wrap{width:100%;max-width:500px;margin-bottom:12px;}
+.graph-title{font-size:.58rem;font-family:'JetBrains Mono',monospace;color:var(--text-dim);letter-spacing:.12em;text-align:center;margin-bottom:6px;}
+canvas#replay-graph{display:block;width:100%;border:1px solid rgba(167,139,250,.3);background:rgba(255,255,255,.05);cursor:crosshair;border-radius:8px;}
+.pivot-note{font-size:.6rem;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,.4);letter-spacing:.08em;text-align:center;margin-bottom:8px;}
+
+@media(max-width:480px){
+  body{padding:6px 4px 8px;}
+
+  /* Header */
+  .game-header{margin-bottom:4px;}
+  .game-title{font-size:1.2rem;}
+  .game-sub{display:none;}
+
+  /* Stats bar */
+  .stats-bar{margin-bottom:2px;font-size:.52rem;}
+
+  /* Scorebar */
+  .scorebar{gap:6px;margin-bottom:4px;}
+  .score-box{padding:5px 8px;border-radius:8px;}
+  .score-name{font-size:.85rem;}
+  .score-detail{font-size:.55rem;}
+  .score-label{font-size:.5rem;}
+
+  /* Move bar */
+  .move-bar-wrap{margin-bottom:4px;}
+  .move-bar-label{font-size:.5rem;}
+  .move-bar-bg{height:3px;}
+
+  /* Timer */
+  .timer-wrap{height:3px;margin-bottom:3px;}
+
+  /* Status */
+  .status{font-size:.68rem;margin-bottom:2px;min-height:16px;}
+
+  /* AI insight */
+  .ai-insight{display:none;}
+
+  /* Board */
+  .board-wrap{margin-bottom:6px;}
+  td{width:33px;height:33px;}
+  .cell-num{font-size:.88rem;}
+
+  /* Num picker */
+  .num-picker{gap:4px;margin-bottom:6px;}
+  .num-btn{width:33px;height:33px;font-size:.95rem;border-radius:8px;}
+
+  /* Controls */
+  .controls{gap:5px;margin-bottom:4px;}
+  .btn{padding:6px 10px;font-size:.68rem;border-radius:8px;}
+
+  /* Legend - hide on mobile */
+  .legend{display:none;}
+
+  /* Diff cards - 3 in a row on mobile */
+  .diff-cards{gap:6px;}
+  .diff-card{width:calc(33% - 4px);padding:10px 6px 8px;}
+  .diff-icon{font-size:1rem;margin-bottom:4px;}
+  .diff-name{font-size:.75rem;}
+  .diff-desc{font-size:.48rem;}
+}
+</style>
+</head>
+<body>
+
+<!-- STATS MODAL -->
+<div class="modal-overlay" id="stats-modal" style="z-index:650;">
+  <div class="modal" style="max-width:380px;border-radius:20px;border:1px solid rgba(167,139,250,.4);background:rgba(20,0,60,.95);">
+    <button class="modal-close" onclick="closeStatsModal()">✕</button>
+    <div class="modal-title" style="font-family:'Fredoka One',cursive;font-size:1.3rem;background:linear-gradient(135deg,#ff6ec7,#a78bfa,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-align:center;margin-bottom:20px;letter-spacing:.1em;">📊 通算成績</div>
+    <div id="stats-content"></div>
+  </div>
+</div>
+
+<!-- RULE MODAL -->
+<div class="modal-overlay" id="rule-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title">📖 SUDUEL ルール</div>
+    <div class="modal-body">
+      <b>基本ルール</b><br>
+      数独の盤面を使って、プレイヤーとAI（または相手）が交互に数字を置きます。数独のルール上正しい数字ならどこでも置けます。<br><b>自分のターンに置ける場所がなくなったら負け</b>です。<br><br>
+      <b>アンドゥ</b><br>
+      直前のAIと自分の手をセットで1回取り消せます。<br><br>
+      <b>制限時間</b><br>
+      設定した時間内に置かなければ即負けです。
+    </div>
+  </div>
+</div>
+
+<!-- START SCREEN -->
+<div class="start-screen" id="start-screen">
+  <div class="start-neon-grid"></div>
+  <div class="start-neon-glow"></div>
+  <div class="start-neon-nums">
+    <div class="start-neon-num" style="top:8%;left:3%;animation-delay:0s">9</div>
+    <div class="start-neon-num" style="top:55%;left:1%;animation-delay:1s">3</div>
+    <div class="start-neon-num" style="top:15%;right:2%;animation-delay:2s">7</div>
+    <div class="start-neon-num" style="top:65%;right:1%;animation-delay:.5s">1</div>
+    <div class="start-neon-num" style="top:35%;left:5%;animation-delay:1.5s">5</div>
+    <div class="start-neon-num" style="top:80%;left:20%;animation-delay:2.5s">6</div>
+    <div class="start-neon-num" style="top:10%;right:15%;animation-delay:3s">4</div>
+  </div>
+  <button class="start-info-btn" onclick="openModal()">ⓘ</button>
+
+  <!-- ステップ1: タイトル + ボタン -->
+  <div class="start-inner" id="start-step1">
+    <div class="start-neon-title">SUDUEL</div>
+    <div class="start-neon-sub">数独デュエル</div>
+    <div class="start-neon-divider"></div>
+    <div class="start-neon-btns">
+      <button class="start-neon-btn primary" onclick="showAISettings()">vs AI で対戦</button>
+      <button class="start-neon-btn online" onclick="showOnlineLobby()">🌐 オンライン対戦</button>
+      <button class="start-neon-btn" style="background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.3);color:rgba(255,255,255,.8);" onclick="openStatsModal()">📊 通算成績</button>
+    </div>
+  </div>
+
+  <!-- ステップ2: AI設定 -->
+  <div class="start-inner" id="start-step2" style="display:none;">
+    <button onclick="showStep1()" style="background:none;border:none;color:rgba(255,255,255,.4);font-size:.8rem;font-family:'Nunito',sans-serif;cursor:pointer;margin-bottom:16px;align-self:flex-start;"><b>← 戻る</b></button>
+    <div class="start-neon-section">AI の強さ</div>
+    <div class="diff-cards">
+      <div class="diff-card easy" data-diff="easy" onclick="selectDiff('easy')">
+        <span class="diff-icon">🌱</span>
+        <div class="diff-badge">EASY</div>
+        <div class="diff-name">弱い</div>
+        <div class="diff-desc">ランダムに置きます</div>
+      </div>
+      <div class="diff-card normal selected" data-diff="normal" onclick="selectDiff('normal')">
+        <span class="diff-icon">⚔️</span>
+        <div class="diff-badge">NORMAL</div>
+        <div class="diff-name">普通</div>
+        <div class="diff-desc">勝ちを狙ってきます</div>
+      </div>
+      <div class="diff-card hard" data-diff="hard" onclick="selectDiff('hard')">
+        <span class="diff-icon">💀</span>
+        <div class="diff-badge">HARD</div>
+        <div class="diff-name">強い</div>
+        <div class="diff-desc">容赦しません</div>
+      </div>
+    </div>
+
+    <div class="start-neon-section">先手</div>
+    <div class="option-cards" id="order-cards">
+      <div class="option-card selected" data-order="random" onclick="selectOrder('random')">
+        <div class="option-card-label">RANDOM</div>
+        <div class="option-card-val">？</div>
+      </div>
+      <div class="option-card" data-order="player" onclick="selectOrder('player')">
+        <div class="option-card-label">PLAYER</div>
+        <div class="option-card-val">あなた</div>
+      </div>
+      <div class="option-card" data-order="ai" onclick="selectOrder('ai')">
+        <div class="option-card-label">CPU</div>
+        <div class="option-card-val">AI</div>
+      </div>
+    </div>
+
+    <div class="start-neon-section">制限時間（プレイヤー）</div>
+    <div class="option-cards" id="timer-cards">
+      <div class="option-card selected" data-sec="0" onclick="selectTimer(0)">
+        <div class="option-card-label">なし</div>
+        <div class="option-card-val">∞</div>
+      </div>
+      <div class="option-card" data-sec="30" onclick="selectTimer(30)">
+        <div class="option-card-label">NORMAL</div>
+        <div class="option-card-val">30s</div>
+      </div>
+      <div class="option-card" data-sec="60" onclick="selectTimer(60)">
+        <div class="option-card-label">RELAXED</div>
+        <div class="option-card-val">60s</div>
+      </div>
+    </div>
+
+    <div class="start-neon-btns">
+      <button class="start-neon-btn primary" onclick="startGame()">ゲームスタート！</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME UI -->
+<div class="game-header">
+  <div class="game-title">SUDUEL</div>
+  <div class="game-sub">SUDUEL</div>
+</div>
+
+<div class="stats-bar">
+  通算: <span id="stat-text">0勝 0敗</span>
+</div>
+
+<div class="scorebar">
+  <div class="score-box player active-turn" id="score-player">
+    <div class="score-label">PLAYER</div>
+    <div class="score-name">あなた</div>
+    <div class="score-detail">手数: <span class="mc" id="player-moves">0</span></div>
+    <div class="turn-dot"></div>
+  </div>
+  <div class="score-box ai" id="score-ai">
+    <div class="score-label">AI <span class="diff-chip" id="diff-chip"></span></div>
+    <div class="score-name">CPU</div>
+    <div class="score-detail">手数: <span class="mc" id="ai-moves">0</span></div>
+    <div class="turn-dot"></div>
+  </div>
+</div>
+
+<div class="move-bar-wrap">
+  <div class="move-bar-label">残り有効手数</div>
+  <div class="move-bar-bg"><div class="move-bar-fill" id="move-bar" style="width:100%"></div></div>
+</div>
+
+<div class="timer-wrap" id="timer-wrap">
+  <div class="timer-bar" id="timer-bar" style="width:100%"></div>
+</div>
+
+<div class="status" id="status">マスを選んで数字を入れてください</div>
+<div class="ai-insight" id="ai-insight"></div>
+
+<div class="board-wrap">
+  <table id="board"></table>
+  <div class="ai-overlay" id="ai-overlay">
+    <div class="ai-thinking">AI THINKING...</div>
+  </div>
+</div>
+
+<div class="num-picker" id="num-picker"></div>
+
+<div class="controls">
+  <button class="btn green" id="hint-btn" onclick="toggleHint()">ヒント: OFF</button>
+  <button class="btn" id="undo-btn" onclick="doUndo()" disabled>アンドゥ</button>
+  <button class="btn danger" onclick="confirmRestart()">最初から</button>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent-p)"></div>あなたの手</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent-ai)"></div>AIの手</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--text-dim)"></div>初期配置</div>
+</div>
+
+<!-- REPLAY -->
+<div class="replay-overlay" id="replay-overlay">
+  <div class="replay-title">棋譜を振り返る</div>
+  <div class="replay-sub">GAME REPLAY</div>
+  <div class="replay-step-info" id="rp-info" style="margin-bottom:8px;">—</div>
+  <div class="replay-timeline" id="rp-timeline"></div>
+  <div class="graph-wrap">
+    <div class="graph-title">残り有効手数の推移 — <span style="color:#fbbf24">● あなた</span> <span style="color:#f472b6">● AI</span> <span style="color:var(--text-mid)">— 合計</span></div>
+    <canvas id="replay-graph" height="120"></canvas>
+  </div>
+  <div class="replay-board-wrap"><table id="replay-board"></table></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px;">
+    <button class="btn" onclick="replayStep(-9999)">⏮ 最初</button>
+    <button class="btn" id="rp-prev" onclick="replayStep(-1)">◀ 前へ</button>
+    <button class="btn" id="rp-next" onclick="replayStep(1)">次へ ▶</button>
+    <button class="btn" onclick="replayStep(9999)">最後 ⏭</button>
+    <button class="btn primary" onclick="closeReplay()">閉じる</button>
+  </div>
+</div>
+
+<!-- ONLINE LOBBY -->
+<div class="modal-overlay" id="online-lobby" style="z-index:700;">
+  <div class="modal" style="max-width:400px;max-height:90vh;overflow-y:auto;border-radius:20px;border:1px solid rgba(167,139,250,.4);background:rgba(20,0,60,.95);">
+    <button class="modal-close" id="lobby-close-btn" onclick="closeOnlineLobby()">✕</button>
+    <div class="modal-title" style="color:#34d399;font-family:'Fredoka One',cursive;font-size:1.2rem;letter-spacing:.1em;">🌐 オンライン対戦</div>
+    <div id="lobby-content">
+      <div style="margin-bottom:16px;">
+        <div style="font-size:.65rem;letter-spacing:.2em;color:rgba(255,255,255,.4);font-family:'Nunito',sans-serif;font-weight:700;margin-bottom:8px;">先手</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <div class="option-card selected" data-online-order="random" onclick="selectOnlineOption('order','random',this)" style="padding:8px 14px;border-radius:8px;"><div class="option-card-label">RANDOM</div></div>
+          <div class="option-card" data-online-order="host" onclick="selectOnlineOption('order','host',this)" style="padding:8px 14px;border-radius:8px;"><div class="option-card-label">あなた</div></div>
+          <div class="option-card" data-online-order="guest" onclick="selectOnlineOption('order','guest',this)" style="padding:8px 14px;border-radius:8px;"><div class="option-card-label">相手</div></div>
+        </div>
+      </div>
+      <div style="margin-bottom:16px;">
+        <div style="font-size:.65rem;letter-spacing:.2em;color:rgba(255,255,255,.4);font-family:'Nunito',sans-serif;font-weight:700;margin-bottom:8px;">制限時間</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <div class="option-card selected" data-online-timer="0" onclick="selectOnlineOption('timer','0',this)" style="padding:8px 14px;border-radius:8px;"><div class="option-card-label">なし ∞</div></div>
+          <div class="option-card" data-online-timer="30" onclick="selectOnlineOption('timer','30',this)" style="padding:8px 14px;border-radius:8px;"><div class="option-card-label">30秒</div></div>
+          <div class="option-card" data-online-timer="60" onclick="selectOnlineOption('timer','60',this)" style="padding:8px 14px;border-radius:8px;"><div class="option-card-label">60秒</div></div>
+        </div>
+      </div>
+      <div style="margin-bottom:20px;">
+        <div style="font-size:.65rem;letter-spacing:.2em;color:rgba(255,255,255,.4);font-family:'Nunito',sans-serif;font-weight:700;margin-bottom:8px;">ヒント</div>
+        <div style="display:flex;gap:8px;">
+          <div class="option-card selected" data-online-hint="on" onclick="selectOnlineOption('hint','on',this)" style="padding:8px 14px;border-radius:8px;"><div class="option-card-label">あり</div></div>
+          <div class="option-card" data-online-hint="off" onclick="selectOnlineOption('hint','off',this)" style="padding:8px 14px;border-radius:8px;"><div class="option-card-label">なし</div></div>
+        </div>
+      </div>
+      <button class="start-neon-btn primary" style="width:100%;margin-bottom:12px;" onclick="createRoom()">部屋を作る</button>
+      <div style="text-align:center;font-size:.6rem;color:rgba(255,255,255,.3);font-family:'Nunito',sans-serif;margin-bottom:10px;">— または既存の部屋に参加 —</div>
+      <div style="display:flex;gap:8px;">
+        <input id="room-id-input" type="text" placeholder="ルームIDを入力"
+          style="flex:1;background:rgba(255,255,255,.08);border:1px solid rgba(167,139,250,.3);color:#fff;padding:10px 14px;font-family:'Nunito',sans-serif;font-size:.9rem;outline:none;border-radius:8px;">
+        <button class="btn green" onclick="joinRoom()" style="border-radius:8px;">参加</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RESULT -->
+<div class="result-overlay" id="result-overlay"></div>
+
+<script>
+// ══════════════════════════════════
+// PUZZLE
+// ══════════════════════════════════
+function generatePuzzle(){
+  let base=[[5,3,4,6,7,8,9,1,2],[6,7,2,1,9,5,3,4,8],[1,9,8,3,4,2,5,6,7],[8,5,9,7,6,1,4,2,3],[4,2,6,8,5,3,7,9,1],[7,1,3,9,2,4,8,5,6],[9,6,1,5,3,7,2,8,4],[2,8,7,4,1,9,6,3,5],[3,4,5,2,8,6,1,7,9]];
+  base=shuffleBoard(base);
+  const puzzle=base.map(r=>[...r]);
+  const pos=[];for(let r=0;r<9;r++)for(let c=0;c<9;c++)pos.push([r,c]);shuffle(pos);
+  let removed=0;
+  for(const[r,c]of pos){if(removed>=45)break;const v=puzzle[r][c];puzzle[r][c]=0;if(!hasUniqueSolution(puzzle))puzzle[r][c]=v;else removed++;}
+  return{puzzle,solution:base};
+}
+function shuffleBoard(board){
+  let b=board.map(r=>[...r]);
+  for(let band=0;band<3;band++){const rows=[band*3,band*3+1,band*3+2];shuffle(rows);const tmp=[b[rows[0]],b[rows[1]],b[rows[2]]];b[band*3]=tmp[0];b[band*3+1]=tmp[1];b[band*3+2]=tmp[2];}
+  const bands=[0,1,2];shuffle(bands);const nb=[];for(const band of bands)nb.push(b[band*3],b[band*3+1],b[band*3+2]);b=nb;
+  b=transpose(b);
+  for(let stack=0;stack<3;stack++){const cols=[stack*3,stack*3+1,stack*3+2];shuffle(cols);const tmp=[b[cols[0]],b[cols[1]],b[cols[2]]];b[stack*3]=tmp[0];b[stack*3+1]=tmp[1];b[stack*3+2]=tmp[2];}
+  b=transpose(b);
+  const perm=[1,2,3,4,5,6,7,8,9];shuffle(perm);return b.map(row=>row.map(v=>perm[v-1]));
+}
+function transpose(b){return b[0].map((_,c)=>b.map(r=>r[c]));}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function hasUniqueSolution(puzzle){
+  const board=puzzle.map(r=>[...r]);let count=0;
+  function solve(){if(count>1)return;const e=findEmpty(board);if(!e){count++;return;}const[r,c]=e;for(let n=1;n<=9;n++){if(isValid(board,r,c,n)){board[r][c]=n;solve();board[r][c]=0;}}}
+  solve();return count===1;
+}
+function findEmpty(b){for(let r=0;r<9;r++)for(let c=0;c<9;c++)if(b[r][c]===0)return[r,c];return null;}
+function isValid(b,r,c,n){
+  if(b[r].includes(n))return false;if(b.some(row=>row[c]===n))return false;
+  const br=Math.floor(r/3)*3,bc=Math.floor(c/3)*3;for(let i=br;i<br+3;i++)for(let j=bc;j<bc+3;j++)if(b[i][j]===n)return false;return true;
+}
+function getValidMoves(board){
+  const moves=[];for(let r=0;r<9;r++)for(let c=0;c<9;c++)if(board[r][c]===0)for(let n=1;n<=9;n++)if(isValid(board,r,c,n))moves.push({r,c,n});return moves;
+}
+
+// ══════════════════════════════════
+// STATE
+// ══════════════════════════════════
+let gameBoard,solution,given,placedBy,initialPuzzle;
+let selectedCell=null,selectedNum=null;
+let currentTurn='player',firstTurn='random';
+let playerMoves=0,aiMoves=0;
+let gameOver=false,showHints=false;
+let lastMove=null,moveHistory=[],graphData=[];
+let aiDifficulty='normal';
+let timerSec=0,timerRemain=0,timerInterval=null;
+let maxValidMoves=0;
+let wins=0,losses=0;
+let lastEndReason=''; // 'stuck' | 'timeout'
+
+// Per-difficulty stats (localStorage)
+function loadDiffStats(){
+  try{return JSON.parse(localStorage.getItem('suduel_stats'))||{easy:{w:0,l:0},normal:{w:0,l:0},hard:{w:0,l:0}};}
+  catch(e){return{easy:{w:0,l:0},normal:{w:0,l:0},hard:{w:0,l:0}};}
+}
+function saveDiffStats(s){try{localStorage.setItem('suduel_stats',JSON.stringify(s));}catch(e){}}
+function recordDiffResult(diff,won){
+  const s=loadDiffStats();
+  if(!s[diff])s[diff]={w:0,l:0};
+  if(won)s[diff].w++;else s[diff].l++;
+  saveDiffStats(s);
+}
+function openStatsModal(){
+  const s=loadDiffStats();
+  const diffs=[
+    {key:'easy',icon:'🌱',name:'弱い',color:'#34d399'},
+    {key:'normal',icon:'⚔️',name:'普通',color:'#a78bfa'},
+    {key:'hard',icon:'💀',name:'強い',color:'#f472b6'}
+  ];
+  let totalW=0,totalL=0;
+  diffs.forEach(d=>{totalW+=s[d.key]?.w||0;totalL+=s[d.key]?.l||0;});
+  document.getElementById('stats-content').innerHTML=diffs.map(d=>{
+    const w=s[d.key]?.w||0,l=s[d.key]?.l||0,total=w+l;
+    const pct=total>0?Math.round(w/total*100):0;
+    return `
+    <div style="border:1px solid ${d.color}44;border-radius:12px;padding:14px;margin-bottom:10px;background:rgba(255,255,255,.03);">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <span style="font-size:1.2rem;">${d.icon}</span>
+        <span style="font-family:'Fredoka One',cursive;color:${d.color};">${d.name}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:rgba(255,255,255,.4);margin-left:auto;">${total}戦</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:.7rem;color:rgba(255,255,255,.5);font-family:'JetBrains Mono',monospace;">勝敗</span>
+        <span style="font-family:'Fredoka One',cursive;">${w}勝 <span style="color:rgba(255,255,255,.4);">${l}敗</span></span>
+      </div>
+      <div style="height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;margin-bottom:4px;">
+        <div style="height:100%;border-radius:3px;width:${pct}%;background:linear-gradient(90deg,${d.color},${d.color}99);"></div>
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:rgba(255,255,255,.35);text-align:right;">勝率 ${pct}%</div>
+    </div>`;
+  }).join('')+`
+  <div style="border:1px solid rgba(167,139,250,.2);border-radius:12px;padding:12px;background:rgba(255,255,255,.03);display:flex;justify-content:space-around;">
+    <div style="text-align:center;"><div style="font-family:'Fredoka One',cursive;font-size:1.6rem;color:#fbbf24;">${totalW}</div><div style="font-size:.6rem;color:rgba(255,255,255,.35);font-family:'JetBrains Mono',monospace;">WINS</div></div>
+    <div style="text-align:center;"><div style="font-family:'Fredoka One',cursive;font-size:1.6rem;color:#f472b6;">${totalL}</div><div style="font-size:.6rem;color:rgba(255,255,255,.35);font-family:'JetBrains Mono',monospace;">LOSSES</div></div>
+    <div style="text-align:center;"><div style="font-family:'Fredoka One',cursive;font-size:1.6rem;color:#a78bfa;">${totalW+totalL}</div><div style="font-size:.6rem;color:rgba(255,255,255,.35);font-family:'JetBrains Mono',monospace;">TOTAL</div></div>
+  </div>`;
+  document.getElementById('stats-modal').classList.add('visible');
+}
+function closeStatsModal(){document.getElementById('stats-modal').classList.remove('visible');}
+// Online state (global so Firebase module and main script can share)
+window._onlineState = { mode: false, role: null, roomId: null };
+// Expose puzzle generator for Firebase module
+window._generatePuzzle = generatePuzzle;
+// Early stub - replaced by Firebase module when loaded
+window._cleanupOnline = function() {
+  window._onlineState.mode = false;
+  window._onlineState.role = null;
+  window._onlineState.roomId = null;
+};
+
+// ══════════════════════════════════
+// MODAL
+// ══════════════════════════════════
+function openModal(){document.getElementById('rule-modal').classList.add('visible');}
+function closeModal(){document.getElementById('rule-modal').classList.remove('visible');}
+document.getElementById('rule-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
+
+// ══════════════════════════════════
+// START SCREEN
+// ══════════════════════════════════
+function showAISettings(){
+  document.getElementById('start-step1').style.display='none';
+  document.getElementById('start-step2').style.display='flex';
+  document.getElementById('start-step2').style.flexDirection='column';
+  document.getElementById('start-step2').style.alignItems='center';
+}
+function showStep1(){
+  document.getElementById('start-step2').style.display='none';
+  document.getElementById('start-step1').style.display='flex';
+  document.getElementById('start-step1').style.flexDirection='column';
+  document.getElementById('start-step1').style.alignItems='center';
+}
+function selectDiff(d){aiDifficulty=d;document.querySelectorAll('.diff-card').forEach(c=>c.classList.toggle('selected',c.dataset.diff===d));}
+function selectOrder(o){firstTurn=o;document.querySelectorAll('#order-cards .option-card').forEach(c=>c.classList.toggle('selected',c.dataset.order===o));}
+function selectTimer(s){timerSec=s;document.querySelectorAll('#timer-cards .option-card').forEach(c=>c.classList.toggle('selected',+c.dataset.sec===s));}
+
+function startGame(){
+  document.getElementById('start-screen').classList.add('hidden');
+  document.getElementById('ai-overlay').classList.remove('visible');
+  // Clean up any lingering online state
+  if(window._cleanupOnline) window._cleanupOnline();
+  // Restore score names in case online mode changed them
+  const aiName=document.querySelector('#score-ai .score-name');
+  if(aiName) aiName.textContent='CPU';
+  const aiThinking=document.querySelector('.ai-thinking');
+  if(aiThinking) aiThinking.textContent='AI THINKING...';
+  const chip=document.getElementById('diff-chip');
+  const labels={easy:'弱い',normal:'普通',hard:'強い'};
+  const colors={easy:'rgba(74,235,181,.2)',normal:'rgba(232,197,71,.2)',hard:'rgba(232,71,106,.2)'};
+  const texts={easy:'#4aebb5',normal:'var(--accent-p)',hard:'var(--accent-ai)'};
+  if(chip){chip.textContent=labels[aiDifficulty];chip.style.background=colors[aiDifficulty];chip.style.color=texts[aiDifficulty];}
+  updateHintButton();
+  initGame();
+}
+
+// ══════════════════════════════════
+// INIT
+// ══════════════════════════════════
+function initGame(){
+  const{puzzle,solution:sol}=generatePuzzle();
+  gameBoard=puzzle.map(r=>[...r]);solution=sol;initialPuzzle=puzzle.map(r=>[...r]);
+  given=puzzle.map(r=>r.map(v=>v!==0));
+  placedBy=Array.from({length:9},()=>Array(9).fill(null));
+  selectedCell=null;selectedNum=null;
+  const resolvedFirst=firstTurn==='random'?(Math.random()<0.5?'player':'ai'):firstTurn;
+  currentTurn=resolvedFirst;playerMoves=0;aiMoves=0;
+  gameOver=false;showHints=false;lastMove=null;moveHistory=[];graphData=[];lastEndReason='';
+  maxValidMoves=getValidMoves(gameBoard).length;
+  graphData.push({step:0,total:maxValidMoves,who:'start'});
+  stopTimer();
+  // Restore scorebar labels to default (in case online mode changed them)
+  const pLabel=document.querySelector('#score-player .score-label');
+  const aLabel=document.querySelector('#score-ai .score-label');
+  if(pLabel) pLabel.textContent='PLAYER';
+  if(aLabel) aLabel.textContent='AI';
+  document.getElementById('hint-btn').textContent='ヒント: OFF';
+  document.getElementById('hint-btn').classList.remove('on');
+  document.getElementById('undo-btn').disabled=true;
+  document.getElementById('ai-insight').textContent='';
+  document.getElementById('result-overlay').classList.remove('visible');
+  updateStats();
+  renderBoard();renderNumPicker();updateScorebar();updateMoveBar();
+  if(currentTurn==='ai'){
+    setStatus((firstTurn==='random'?'ランダムの結果、':'')+'AIが先手です。考えています...','ai-msg');
+    document.getElementById('ai-overlay').classList.add('visible');
+    setTimeout(()=>doAIMove(),900+Math.random()*400);
+  } else {
+    setStatus(firstTurn==='random'?'ランダムの結果、あなたが先手です':'マスを選んで数字を入れてください', firstTurn==='random'?'player-msg':'');
+    renderHighlights();
+    if(timerSec>0)startTimer();
+  }
+}
+
+// ══════════════════════════════════
+// TIMER
+// ══════════════════════════════════
+function startTimer(){
+  timerRemain=timerSec;
+  document.getElementById('timer-wrap').classList.add('active');
+  updateTimerBar();
+  timerInterval=setInterval(()=>{
+    if(currentTurn!=='player'||gameOver)return;
+    timerRemain-=0.1;
+    if(timerRemain<=0){timerRemain=0;updateTimerBar();onTimerExpire();}
+    else updateTimerBar();
+  },100);
+}
+function stopTimer(){clearInterval(timerInterval);timerInterval=null;}
+function resetTimer(){timerRemain=timerSec;updateTimerBar();}
+function updateTimerBar(){
+  const pct=timerSec>0?(timerRemain/timerSec)*100:100;
+  const bar=document.getElementById('timer-bar');
+  bar.style.width=pct+'%';
+  bar.style.background=pct>40?'var(--accent-p)':pct>20?'#e89047':'var(--accent-ai)';
+}
+function onTimerExpire(){
+  document.querySelectorAll('#board td:not(.given):not(.filled)').forEach(td=>td.classList.add('timeout-flash'));
+  setStatus('時間切れ！負けです','warn');
+  selectedCell=null;selectedNum=null;
+  lastEndReason='timeout';
+  setTimeout(()=>endGame('ai'),600);
+}
+
+// ══════════════════════════════════
+// RENDER
+// ══════════════════════════════════
+function renderBoard(){
+  const tbl=document.getElementById('board');tbl.innerHTML='';
+  for(let r=0;r<9;r++){
+    const tr=document.createElement('tr');
+    for(let c=0;c<9;c++){
+      const td=document.createElement('td');td.dataset.r=r;td.dataset.c=c;
+      if(given[r][c]){td.classList.add('given');td.innerHTML=`<span class="cell-num">${gameBoard[r][c]}</span>`;}
+      else if(gameBoard[r][c]!==0){
+        td.classList.add('filled');
+        td.classList.add(placedBy[r][c]==='player'?'player-placed':'ai-placed');
+        if(lastMove&&lastMove.r===r&&lastMove.c===c)td.classList.add(lastMove.who==='player'?'last-move-player':'last-move-ai');
+        td.innerHTML=`<span class="cell-num">${gameBoard[r][c]}</span>`;
+      } else {
+        td.addEventListener('click',()=>onCellClick(r,c));
+      }
+      tr.appendChild(td);
+    }
+    tbl.appendChild(tr);
+  }
+  if(showHints&&currentTurn==='player')highlightValidCells();
+}
+function getCell(r,c){return document.querySelector(`#board td[data-r="${r}"][data-c="${c}"]`);}
+
+// ══════════════════════════════════
+// INPUT
+// ══════════════════════════════════
+function onCellClick(r,c){
+  if(gameOver||currentTurn!=='player')return;
+  if(given[r][c]||gameBoard[r][c]!==0)return;
+  if(selectedNum!==null){
+    if(isValid(gameBoard,r,c,selectedNum))placeNumber(r,c,selectedNum,'player');
+    else setStatus(`そこには ${selectedNum} は入りません`,'');
+    return;
+  }
+  selectedCell=(selectedCell&&selectedCell[0]===r&&selectedCell[1]===c)?null:[r,c];
+  renderHighlights();
+}
+function onNumClick(n){
+  if(gameOver||currentTurn!=='player')return;
+  if(selectedNum===n){selectedNum=null;renderHighlights();return;}
+  selectedNum=n;
+  if(selectedCell){const[r,c]=selectedCell;if(gameBoard[r][c]===0){if(isValid(gameBoard,r,c,n)){placeNumber(r,c,n,'player');return;}else setStatus(`そこには ${n} は入りません`,'');}}
+  renderHighlights();
+}
+
+// ══════════════════════════════════
+// PLACE
+// ══════════════════════════════════
+function placeNumber(r,c,n,who){
+  const totalBefore=getValidMoves(gameBoard).length;
+  gameBoard[r][c]=n;placedBy[r][c]=who;lastMove={r,c,who};
+  const totalAfter=getValidMoves(gameBoard).length;
+  moveHistory.push({r,c,n,who,totalBefore,totalAfter});
+  graphData.push({step:moveHistory.length,total:totalAfter,who});
+  if(who==='player')playerMoves++;else aiMoves++;
+  selectedCell=null;selectedNum=null;
+  renderBoard();
+  const td=getCell(r,c);if(td){td.classList.add('just-placed');setTimeout(()=>td.classList.remove('just-placed'),350);}
+  updateScorebar();updateMoveBar();
+  playSound(who==='player'?'place':'ai_place');
+
+  if(who==='player'){
+    document.getElementById('undo-btn').disabled=false;
+    currentTurn='ai';updateScorebar();
+    if(timerSec>0)resetTimer();
+    if(getValidMoves(gameBoard).length===0){lastEndReason='stuck';endGame('player');return;}
+    setStatus('AIが考えています...','ai-msg');
+    document.getElementById('ai-overlay').classList.add('visible');
+    const delay=aiDifficulty==='hard'?1100+Math.random()*700:aiDifficulty==='normal'?700+Math.random()*500:350+Math.random()*250;
+    setTimeout(()=>doAIMove(),delay);
+  } else {
+    currentTurn='player';updateScorebar();
+    if(timerSec>0)resetTimer();
+    if(getValidMoves(gameBoard).length===0){lastEndReason='stuck';endGame('ai');return;}
+    setStatus('あなたの番です','player-msg');
+    renderHighlights();
+    if(timerSec>0)startTimer();
+  }
+}
+
+// ══════════════════════════════════
+// UNDO
+// ══════════════════════════════════
+function doUndo(){
+  if(gameOver||moveHistory.length<2)return;
+  let removed=0;
+  while(moveHistory.length>0&&removed<2){
+    const m=moveHistory.pop();graphData.pop();
+    gameBoard[m.r][m.c]=0;placedBy[m.r][m.c]=null;
+    if(m.who==='player')playerMoves--;else aiMoves--;
+    removed++;
+  }
+  lastMove=moveHistory.length>0?moveHistory[moveHistory.length-1]:null;
+  currentTurn='player';selectedCell=null;selectedNum=null;
+  document.getElementById('undo-btn').disabled=moveHistory.length<2;
+  document.getElementById('ai-insight').textContent='';
+  renderBoard();updateScorebar();updateMoveBar();
+  if(timerSec>0)resetTimer();
+  setStatus('1手戻しました','player-msg');
+  renderHighlights();
+}
+
+// ══════════════════════════════════
+// AI — PARITY + CASCADE STRATEGY
+// ══════════════════════════════════
+function doAIMove(){
+  document.getElementById('ai-overlay').classList.remove('visible');
+  const moves=getValidMoves(gameBoard);
+  if(moves.length===0){lastEndReason='stuck';endGame('player');return;}
+
+  let bestMove,insight='';
+
+  if(aiDifficulty==='easy'){
+    bestMove=moves[Math.floor(Math.random()*moves.length)];
+
+  } else if(aiDifficulty==='normal'){
+    const before=moves.length;
+    let bestScore=-Infinity;
+    for(const m of moves){
+      const tmp=gameBoard.map(r=>[...r]);tmp[m.r][m.c]=m.n;
+      const after=getValidMoves(tmp).length;
+      const parityBonus=(after%2===0)?200:0;
+      const cascade=before-after;
+      const score=parityBonus+cascade+Math.random()*2;
+      if(score>bestScore){bestScore=score;bestMove=m;}
+    }
+    const tmp2=gameBoard.map(r=>[...r]);tmp2[bestMove.r][bestMove.c]=bestMove.n;
+    const after2=getValidMoves(tmp2).length;
+    insight=`残り ${before} → ${after2} 手 (${after2%2===0?'偶数：有利':'奇数：不利'})`;
+
+  } else {
+    // HARD: 2-ply
+    // Player's best response = pick move leaving ODD count (puts AI in bad parity)
+    const before=moves.length;
+    let bestScore=-Infinity;
+    const sample=moves.length>30?shuffle([...moves]).slice(0,30):moves;
+    for(const m of sample){
+      const tmp=gameBoard.map(r=>[...r]);tmp[m.r][m.c]=m.n;
+      const pMoves=getValidMoves(tmp);
+      if(pMoves.length===0){bestMove=m;bestScore=Infinity;break;}
+      // Player plays optimally: picks move leaving ODD after (bad for AI next turn)
+      // i.e. player wants (after player move) to be ODD
+      let worstForAI=Infinity;
+      const pSample=pMoves.length>20?shuffle([...pMoves]).slice(0,20):pMoves;
+      for(const pm of pSample){
+        const tmp2=tmp.map(r=>[...r]);tmp2[pm.r][pm.c]=pm.n;
+        const afterP=getValidMoves(tmp2).length;
+        // player prefers to leave ODD (hurts AI), so player picks smallest ODD if possible
+        // We model: player scores +100 for odd, +cascade
+        const pCascade=pMoves.length-afterP;
+        const pParity=(afterP%2===1)?100:0;
+        const pScore=pParity+pCascade;
+        // worstForAI = the state player leaves us in (we want afterP to be even)
+        // Track the afterP the player would choose (highest pScore)
+        if(pScore>-worstForAI){ // hack: track the best player move
+          worstForAI=afterP;
+        }
+      }
+      const parityBonus=(worstForAI%2===0)?200:0;
+      const cascade=before-pMoves.length;
+      const score=parityBonus+cascade*2+Math.random()*1.5;
+      if(score>bestScore){bestScore=score;bestMove=m;}
+    }
+    if(!bestMove)bestMove=moves[0];
+    const tmp2=gameBoard.map(r=>[...r]);tmp2[bestMove.r][bestMove.c]=bestMove.n;
+    const after2=getValidMoves(tmp2).length;
+    insight=`2手先読み: 残り ${before} → ${after2} 手 (${after2%2===0?'偶数：有利':'奇数：不利'})`;
+  }
+
+  if(bestMove)placeNumber(bestMove.r,bestMove.c,bestMove.n,'ai');
+}
+
+// ══════════════════════════════════
+// HIGHLIGHTS
+// ══════════════════════════════════
+function renderHighlights(){
+  document.querySelectorAll('#board td').forEach(td=>td.classList.remove('selected','hl-row','hl-col','hl-box','valid-hint'));
+  if(selectedCell){
+    const[r,c]=selectedCell;
+    const sel=getCell(r,c);if(sel)sel.classList.add('selected');
+    for(let i=0;i<9;i++){if(i!==c){const t=getCell(r,i);if(t)t.classList.add('hl-row');}if(i!==r){const t=getCell(i,c);if(t)t.classList.add('hl-col');}}
+    const br=Math.floor(r/3)*3,bc=Math.floor(c/3)*3;
+    for(let i=br;i<br+3;i++)for(let j=bc;j<bc+3;j++)if(i!==r||j!==c){const t=getCell(i,j);if(t)t.classList.add('hl-box');}
+  }
+  const hintsAllowed = aiDifficulty !== 'hard';
+  document.querySelectorAll('.num-btn').forEach(btn=>{
+    const n=parseInt(btn.dataset.n);
+    btn.classList.toggle('active',n===selectedNum);
+    if(showHints && hintsAllowed && selectedCell){
+      // Only grey out when hints are ON
+      btn.disabled=!isValid(gameBoard,selectedCell[0],selectedCell[1],n);
+    } else {
+      // Hints OFF: grey out only numbers that can't be placed anywhere
+      const placeable=gameBoard.some((row,r)=>row.some((v,c)=>v===0&&isValid(gameBoard,r,c,n)));
+      btn.disabled=!placeable;
+    }
+  });
+  if(showHints&&hintsAllowed) highlightValidCells();
+}
+function highlightValidCells(){
+  if(!selectedNum)return;
+  document.querySelectorAll('#board td').forEach(td=>{
+    const r=parseInt(td.dataset.r),c=parseInt(td.dataset.c);
+    if(!isNaN(r)&&gameBoard[r][c]===0&&isValid(gameBoard,r,c,selectedNum))td.classList.add('valid-hint');
+  });
+}
+
+// ══════════════════════════════════
+// SCOREBAR + BARS
+// ══════════════════════════════════
+function updateScorebar(){
+  document.getElementById('player-moves').textContent=playerMoves;
+  document.getElementById('ai-moves').textContent=aiMoves;
+  document.getElementById('score-player').classList.toggle('active-turn',currentTurn==='player');
+  document.getElementById('score-ai').classList.toggle('active-turn',currentTurn==='ai');
+}
+function updateMoveBar(){
+  const total=getValidMoves(gameBoard).length;
+  const pct=maxValidMoves>0?Math.max(0,(total/maxValidMoves)*100):0;
+  document.getElementById('move-bar').style.width=pct+'%';
+}
+function updateStats(){
+  document.getElementById('stat-text').textContent=`${wins}勝 ${losses}敗`;
+}
+function setStatus(msg,cls=''){const el=document.getElementById('status');el.textContent=msg;el.className='status '+cls;}
+
+// ══════════════════════════════════
+// NUM PICKER
+// ══════════════════════════════════
+function renderNumPicker(){
+  const p=document.getElementById('num-picker');p.innerHTML='';
+  for(let n=1;n<=9;n++){
+    const btn=document.createElement('button');btn.className='num-btn';btn.textContent=n;btn.dataset.n=n;
+    btn.addEventListener('click',()=>onNumClick(n));p.appendChild(btn);
+  }
+}
+function toggleHint(){
+  if(aiDifficulty==='hard' && !window._onlineState?.mode){setStatus('HARDモードではヒントは使えません','warn');return;}
+  showHints=!showHints;
+  const btn=document.getElementById('hint-btn');
+  btn.textContent='ヒント: '+(showHints?'ON':'OFF');
+  btn.classList.toggle('on',showHints);
+  renderHighlights();
+}
+function updateHintButton(){
+  const btn=document.getElementById('hint-btn');
+  if(aiDifficulty==='hard'){
+    btn.textContent='ヒント: 不可';
+    btn.disabled=true;
+    btn.classList.remove('on');
+  } else {
+    btn.textContent='ヒント: '+(showHints?'ON':'OFF');
+    btn.disabled=false;
+    btn.classList.toggle('on',showHints);
+  }
+}
+
+// ══════════════════════════════════
+// SOUND
+// ══════════════════════════════════
+let audioCtx=null;
+function getAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
+function playSound(type){
+  try{
+    const ctx=getAudio(),osc=ctx.createOscillator(),gain=ctx.createGain();
+    osc.connect(gain);gain.connect(ctx.destination);const t=ctx.currentTime;
+    if(type==='place'){osc.frequency.setValueAtTime(520,t);osc.frequency.exponentialRampToValueAtTime(680,t+.08);gain.gain.setValueAtTime(.12,t);gain.gain.exponentialRampToValueAtTime(.001,t+.18);osc.start(t);osc.stop(t+.18);}
+    else if(type==='ai_place'){osc.frequency.setValueAtTime(340,t);osc.frequency.exponentialRampToValueAtTime(280,t+.1);gain.gain.setValueAtTime(.08,t);gain.gain.exponentialRampToValueAtTime(.001,t+.16);osc.start(t);osc.stop(t+.16);}
+    else if(type==='win'){osc.frequency.setValueAtTime(440,t);osc.frequency.setValueAtTime(550,t+.1);osc.frequency.setValueAtTime(660,t+.22);gain.gain.setValueAtTime(.15,t);gain.gain.exponentialRampToValueAtTime(.001,t+.55);osc.start(t);osc.stop(t+.55);}
+    else if(type==='lose'){osc.frequency.setValueAtTime(300,t);osc.frequency.exponentialRampToValueAtTime(180,t+.45);gain.gain.setValueAtTime(.12,t);gain.gain.exponentialRampToValueAtTime(.001,t+.5);osc.start(t);osc.stop(t+.5);}
+  }catch(e){}
+}
+
+// ══════════════════════════════════
+// END GAME
+// ══════════════════════════════════
+const timeoutTaunts=['考えすぎ！時間切れです。','もたもたしてたら負けましたよ。'];
+window._timeoutTaunts = timeoutTaunts;
+function endGame(winner){
+  gameOver=true;stopTimer();
+  playSound(winner==='player'?'win':'lose');
+  if(winner==='player')wins++;else losses++;
+  recordDiffResult(aiDifficulty, winner==='player');
+  updateStats();
+  const overlay=document.getElementById('result-overlay');
+  overlay.classList.add('visible');
+  let subMsg;
+  if(winner==='player') subMsg='AIが手詰まりになりました！';
+  else if(lastEndReason==='timeout') subMsg=timeoutTaunts[Math.floor(Math.random()*timeoutTaunts.length)];
+  else subMsg='あなたが手詰まりになりました。';
+  overlay.innerHTML=`
+    <div class="result-title ${winner==='player'?'win':'lose'}">${winner==='player'?'YOU WIN！':'AI WIN...'}</div>
+    <div class="result-sub">${subMsg}</div>
+    <div class="result-stats">あなた: ${playerMoves}手 / AI: ${aiMoves}手　通算: ${wins}勝 ${losses}敗</div>
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;justify-content:center;">
+      <button class="btn" onclick="openReplay()">棋譜を見る</button>
+      <button class="btn danger" onclick="confirmRestart()">タイトルに戻る</button>
+      <button class="btn primary" onclick="initGame()">再戦する</button>
+    </div>`;
+}
+
+// ══════════════════════════════════
+// RESTART
+// ══════════════════════════════════
+function confirmRestart(){
+  stopTimer();
+  ['result-overlay','ai-overlay','replay-overlay'].forEach(id=>document.getElementById(id).classList.remove('visible'));
+  // Clean up online state
+  if(window._cleanupOnline) {
+    window._cleanupOnline();
+  }
+  // Restore scorebar labels
+  const pLabel=document.querySelector('#score-player .score-label');
+  const aLabel=document.querySelector('#score-ai .score-label');
+  if(pLabel) pLabel.textContent='PLAYER';
+  if(aLabel) aLabel.textContent='AI';
+  // Restore hint button
+  const hintBtn=document.getElementById('hint-btn');
+  if(hintBtn){ hintBtn.disabled=false; hintBtn.textContent='ヒント: OFF'; hintBtn.classList.remove('on'); }
+  document.getElementById('start-screen').classList.remove('hidden');
+  // Reset to step 1
+  document.getElementById('start-step1').style.display='flex';
+  document.getElementById('start-step2').style.display='none';
+  document.querySelectorAll('.diff-card').forEach(c=>c.classList.toggle('selected',c.dataset.diff===aiDifficulty));
+  document.querySelectorAll('#order-cards .option-card').forEach(c=>c.classList.toggle('selected',c.dataset.order===firstTurn));
+  document.querySelectorAll('#timer-cards .option-card').forEach(c=>c.classList.toggle('selected',+c.dataset.sec===timerSec));
+}
+
+// ══════════════════════════════════
+// REPLAY
+// ══════════════════════════════════
+let replayCursor=0;
+function openReplay(){
+  document.getElementById('result-overlay').classList.remove('visible');
+  document.getElementById('replay-overlay').classList.add('visible');
+  replayCursor=moveHistory.length;
+  renderTimeline();renderReplayBoard();drawGraph();
+}
+function closeReplay(){document.getElementById('replay-overlay').classList.remove('visible');document.getElementById('result-overlay').classList.add('visible');}
+function replayStep(delta){
+  const next=Math.max(0,Math.min(moveHistory.length,replayCursor+delta));
+  if(next===replayCursor)return;
+  replayCursor=next;renderTimeline();renderReplayBoard();drawGraph();
+}
+function renderTimeline(){
+  const tl=document.getElementById('rp-timeline');tl.innerHTML='';
+  for(let i=0;i<=moveHistory.length;i++){
+    const dot=document.createElement('div');
+    if(i===0){dot.className='tl-dot gd'+(replayCursor===0?' cur':'');dot.title='開始局面';}
+    else{
+      const m=moveHistory[i-1];
+      let cls=`tl-dot ${m.who==='player'?'pd':'ad'}${replayCursor===i?' cur':''}`;
+      dot.className=cls;dot.title=`${i}手目: ${m.who==='player'?'あなた':'AI'} →(${m.r+1},${m.c+1})=${m.n}  残り:${m.totalAfter}`;dot.textContent=i;
+    }
+    dot.addEventListener('click',()=>{replayCursor=i;renderTimeline();renderReplayBoard();drawGraph();});
+    tl.appendChild(dot);
+  }
+}
+function renderReplayBoard(){
+  const state=Array.from({length:9},()=>Array(9).fill(0));
+  const stateBy=Array.from({length:9},()=>Array(9).fill(null));
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++)if(given[r][c])state[r][c]=initialPuzzle[r][c];
+  for(let i=0;i<replayCursor;i++){const m=moveHistory[i];state[m.r][m.c]=m.n;stateBy[m.r][m.c]=m.who;}
+  const hlMove=replayCursor>0?moveHistory[replayCursor-1]:null;
+  const info=document.getElementById('rp-info');
+  if(replayCursor===0)info.innerHTML='開始局面';
+  else{
+    const m=moveHistory[replayCursor-1];
+    const wl=m.who==='player'?`<span class="pc">あなた</span>`:`<span class="ac">AI</span>`;
+    info.innerHTML=`${replayCursor}手目: ${wl} → [${m.r+1}行${m.c+1}列] = <b>${m.n}</b>　残り: ${m.totalAfter}手`;
+  }
+  const tbl=document.getElementById('replay-board');tbl.innerHTML='';
+  for(let r=0;r<9;r++){
+    const tr=document.createElement('tr');
+    for(let c=0;c<9;c++){
+      const td=document.createElement('td');td.dataset.r=r;td.dataset.c=c;
+      if(given[r][c]){td.classList.add('given');td.innerHTML=`<span class="cell-num">${state[r][c]}</span>`;}
+      else if(state[r][c]!==0){
+        td.classList.add('filled');td.classList.add(stateBy[r][c]==='player'?'player-placed':'ai-placed');
+        if(hlMove&&hlMove.r===r&&hlMove.c===c)td.classList.add(hlMove.who==='player'?'last-move-player':'last-move-ai');
+        td.innerHTML=`<span class="cell-num">${state[r][c]}</span>`;
+      }
+      tr.appendChild(td);
+    }
+    tbl.appendChild(tr);
+  }
+  document.getElementById('rp-prev').disabled=replayCursor===0;
+  document.getElementById('rp-next').disabled=replayCursor===moveHistory.length;
+}
+
+// ══════════════════════════════════
+// GRAPH (with click-to-jump)
+// ══════════════════════════════════
+function drawGraph(){
+  const canvas=document.getElementById('replay-graph');
+  const dpr=window.devicePixelRatio||1;
+  const W=canvas.parentElement.clientWidth,H=120;
+  canvas.width=W*dpr;canvas.height=H*dpr;
+  canvas.style.width=W+'px';canvas.style.height=H+'px';
+  const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);
+  const pad={l:30,r:10,t:12,b:22};
+  const iW=W-pad.l-pad.r,iH=H-pad.t-pad.b;
+  ctx.fillStyle='rgba(15,0,53,.9)';ctx.fillRect(0,0,W,H);
+  if(graphData.length<2){ctx.fillStyle='rgba(255,255,255,.3)';ctx.font='11px JetBrains Mono,monospace';ctx.textAlign='center';ctx.fillText('データなし',W/2,H/2);return;}
+  const maxV=Math.max(...graphData.map(d=>d.total),1);
+  const n=graphData.length;
+  const xOf=i=>pad.l+(n>1?i/(n-1):0)*iW;
+  const yOf=v=>pad.t+(1-v/maxV)*iH;
+
+  // Grid
+  ctx.strokeStyle='rgba(167,139,250,.15)';ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y=pad.t+(i/4)*iH;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+iW,y);ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.3)';ctx.font=`9px 'JetBrains Mono',monospace`;ctx.textAlign='right';
+    ctx.fillText(Math.round(maxV*(1-i/4)),pad.l-3,y+3);
+  }
+
+  // Line
+  ctx.beginPath();ctx.strokeStyle='rgba(167,139,250,.4)';ctx.lineWidth=1.5;
+  graphData.forEach((d,i)=>i===0?ctx.moveTo(xOf(i),yOf(d.total)):ctx.lineTo(xOf(i),yOf(d.total)));
+  ctx.stroke();
+
+  // Dots
+  graphData.forEach((d,i)=>{
+    if(i===0)return;
+    const x=xOf(i),y=yOf(d.total);
+    const col=d.who==='player'?'#fbbf24':d.who==='ai'?'#f472b6':'rgba(255,255,255,.4)';
+    ctx.beginPath();ctx.arc(x,y,3.5,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();
+  });
+
+  // Cursor
+  if(replayCursor>=0&&replayCursor<n){
+    const cx=xOf(replayCursor);
+    ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+    ctx.beginPath();ctx.moveTo(cx,pad.t);ctx.lineTo(cx,pad.t+iH);ctx.stroke();ctx.setLineDash([]);
+    const d=graphData[replayCursor];
+    ctx.beginPath();ctx.arc(cx,yOf(d.total),5,0,Math.PI*2);ctx.fillStyle='white';ctx.fill();
+  }
+
+  // X labels
+  ctx.fillStyle='rgba(255,255,255,.3)';ctx.font=`9px 'JetBrains Mono',monospace`;ctx.textAlign='center';
+  const step=Math.max(1,Math.floor(n/8));
+  for(let i=0;i<n;i+=step)ctx.fillText(i,xOf(i),H-5);
+}
+
+// Graph click → jump to that step
+document.getElementById('replay-graph').addEventListener('click',function(e){
+  if(graphData.length<2)return;
+  const rect=this.getBoundingClientRect();
+  const x=e.clientX-rect.left;
+  const pad={l:30,r:10};const iW=rect.width-pad.l-pad.r;
+  const n=graphData.length;
+  const i=Math.round(((x-pad.l)/iW)*(n-1));
+  const clamped=Math.max(0,Math.min(moveHistory.length,i));
+  replayCursor=clamped;renderTimeline();renderReplayBoard();drawGraph();
+});
+
+// ══════════════════════════════════
+// ONLINE BRIDGE (filled by Firebase module)
+// ══════════════════════════════════
+function showOnlineLobby(){ if(window._showOnlineLobby) window._showOnlineLobby(); }
+function closeOnlineLobby(){ if(window._closeOnlineLobby) window._closeOnlineLobby(); }
+function createRoom(){ if(window._createRoom) window._createRoom(); }
+function joinRoom(){ if(window._joinRoom) window._joinRoom(); }
+function requestRematch(){ if(window._requestRematch) window._requestRematch(); }
+function cancelRoom(id){ if(window._cancelRoom) window._cancelRoom(id); }
+function leaveRoom(){ if(window._leaveRoom) window._leaveRoom(); }
+function selectOnlineOption(t,v,el){ if(window._selectOnlineOption) window._selectOnlineOption(t,v,el); }
+</script>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, set, get, onValue, update, remove } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDqhRfoFglDARfxtHKKI_qY5jyJEHSrwx8",
+  authDomain: "last-cell-a21fd.firebaseapp.com",
+  databaseURL: "https://last-cell-a21fd-default-rtdb.firebaseio.com",
+  projectId: "last-cell-a21fd",
+  storageBucket: "last-cell-a21fd.firebasestorage.app",
+  messagingSenderId: "692420655221",
+  appId: "1:692420655221:web:1be64584e1288c232b203c"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// ══════════════════════════════════
+// STATE
+// ══════════════════════════════════
+let onlineMode = false;
+let myRole = null;          // 'host' | 'guest'
+let currentRoomId = null;
+let onlineTimerSec = 0;
+let onlineHints = true;
+let onlineFirstRole = 'host'; // remember firstRole for rematch
+let onlineTimerInterval = null;
+let onlineTimerRemain = 0;
+let lobbySettings = { order: 'random', timer: '0', hint: 'on' };
+
+// Listeners
+let gameListener = null;
+let statusListener = null;
+let rematchFlagUnsub = null;
+
+function unsubAll() {
+  if (gameListener)     { try { gameListener(); }     catch(e) {} gameListener = null; }
+  if (statusListener)   { try { statusListener(); }   catch(e) {} statusListener = null; }
+  if (rematchFlagUnsub) { try { rematchFlagUnsub(); } catch(e) {} rematchFlagUnsub = null; }
+}
+
+function genRoomId() {
+  return Math.floor(1000 + Math.random() * 9000).toString();
+}
+
+// ══════════════════════════════════
+// LOBBY
+// ══════════════════════════════════
+const LOBBY_HTML = `
+  <div style="margin-bottom:16px;">
+    <div style="font-size:.65rem;letter-spacing:.2em;color:rgba(255,255,255,.4);font-family:'Nunito',sans-serif;font-weight:700;margin-bottom:8px;">先手</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <div class="option-card selected" data-online-order="random" onclick="selectOnlineOption('order','random',this)" style="padding:8px 14px;border-radius:8px;"><div class="option-card-label">RANDOM</div></div>
+      <div class="option-card" data-online-order="host" onclick="selectOnlineOption('order','host',this)" style="padding:8px 14px;border-radius:8px;"><div class="option-card-label">あなた</div></div>
+      <div class="option-card" data-online-order="guest" onclick="selectOnlineOption('order','guest',this)" style="padding:8px 14px;border-radius:8px;"><div class="option-card-label">相手</div></div>
+    </div>
+  </div>
+  <div style="margin-bottom:16px;">
+    <div style="font-size:.65rem;letter-spacing:.2em;color:rgba(255,255,255,.4);font-family:'Nunito',sans-serif;font-weight:700;margin-bottom:8px;">制限時間</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <div class="option-card selected" data-online-timer="0" onclick="selectOnlineOption('timer','0',this)" style="padding:8px 14px;border-radius:8px;"><div class="option-card-label">なし ∞</div></div>
+      <div class="option-card" data-online-timer="30" onclick="selectOnlineOption('timer','30',this)" style="padding:8px 14px;border-radius:8px;"><div class="option-card-label">30秒</div></div>
+      <div class="option-card" data-online-timer="60" onclick="selectOnlineOption('timer','60',this)" style="padding:8px 14px;border-radius:8px;"><div class="option-card-label">60秒</div></div>
+    </div>
+  </div>
+  <div style="margin-bottom:20px;">
+    <div style="font-size:.65rem;letter-spacing:.2em;color:rgba(255,255,255,.4);font-family:'Nunito',sans-serif;font-weight:700;margin-bottom:8px;">ヒント</div>
+    <div style="display:flex;gap:8px;">
+      <div class="option-card selected" data-online-hint="on" onclick="selectOnlineOption('hint','on',this)" style="padding:8px 14px;border-radius:8px;"><div class="option-card-label">あり</div></div>
+      <div class="option-card" data-online-hint="off" onclick="selectOnlineOption('hint','off',this)" style="padding:8px 14px;border-radius:8px;"><div class="option-card-label">なし</div></div>
+    </div>
+  </div>
+  <button class="start-neon-btn primary" style="width:100%;margin-bottom:12px;" onclick="createRoom()">部屋を作る</button>
+  <div style="text-align:center;font-size:.6rem;color:rgba(255,255,255,.3);font-family:'Nunito',sans-serif;margin-bottom:10px;">— または既存の部屋に参加 —</div>
+  <div style="display:flex;gap:8px;">
+    <input id="room-id-input" type="text" placeholder="ルームIDを入力" style="flex:1;background:rgba(255,255,255,.08);border:1px solid rgba(167,139,250,.3);color:#fff;padding:10px 14px;font-family:'Nunito',sans-serif;font-size:.9rem;outline:none;border-radius:8px;">
+    <button class="btn green" onclick="joinRoom()" style="border-radius:8px;">参加</button>
+  </div>`;
+
+window._selectOnlineOption = function(type, value, el) {
+  lobbySettings[type] = value;
+  const attr = `data-online-${type}`;
+  document.querySelectorAll(`[${attr}]`).forEach(c => c.classList.toggle('selected', c.getAttribute(attr) === value));
+};
+
+window._showOnlineLobby = function() {
+  const closeBtn = document.getElementById('lobby-close-btn');
+  if (closeBtn) closeBtn.style.display = '';
+  document.getElementById('lobby-content').innerHTML = LOBBY_HTML;
+  lobbySettings = { order: 'random', timer: '0', hint: 'on' };
+  document.getElementById('online-lobby').classList.add('visible');
+};
+
+window._closeOnlineLobby = function() {
+  document.getElementById('online-lobby').classList.remove('visible');
+};
+
+// ══════════════════════════════════
+// CREATE ROOM
+// ══════════════════════════════════
+window._createRoom = async function() {
+  // Generate unique room ID
+  let roomId;
+  let attempts = 0;
+  do {
+    roomId = genRoomId();
+    const existing = await get(ref(db, `rooms/${roomId}`));
+    if (!existing.exists()) break;
+    attempts++;
+  } while (attempts < 10);
+
+  currentRoomId = roomId;
+  myRole = 'host';
+  if (window._onlineState) { window._onlineState.roomId = roomId; window._onlineState.role = 'host'; window._onlineState.mode = true; }
+
+  const { puzzle } = window._generatePuzzle();
+  const puzzleFlat = puzzle.map(r => r.join(',')).join('|');
+
+  let firstRole = lobbySettings.order;
+  if (firstRole === 'random') firstRole = Math.random() < 0.5 ? 'host' : 'guest';
+
+  await set(ref(db, `rooms/${roomId}`), {
+    status: 'waiting',
+    puzzle: puzzleFlat,
+    firstRole,
+    timerSec: parseInt(lobbySettings.timer),
+    hintsAllowed: lobbySettings.hint === 'on',
+    lastMove: null,
+    createdAt: Date.now()
+  });
+
+  // Hide X button while waiting
+  const closeBtn = document.getElementById('lobby-close-btn');
+  if (closeBtn) closeBtn.style.display = 'none';
+
+  document.getElementById('lobby-content').innerHTML = `
+    <div style="text-align:center;">
+      <div style="font-size:.65rem;color:var(--text-dim);font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:12px;">ルームID</div>
+      <div style="font-size:2.2rem;font-weight:900;font-family:'JetBrains Mono',monospace;color:var(--valid);letter-spacing:.3em;margin-bottom:8px;">${roomId}</div>
+      <div style="font-size:.6rem;color:var(--text-mid);font-family:'JetBrains Mono',monospace;margin-bottom:6px;">先手: ${firstRole==='host'?'あなた':'相手'} ／ 制限時間: ${lobbySettings.timer==='0'?'なし':lobbySettings.timer+'秒'} ／ ヒント: ${lobbySettings.hint==='on'?'あり':'なし'}</div>
+      <div style="font-size:.62rem;color:var(--text-mid);font-family:'JetBrains Mono',monospace;margin-bottom:18px;">このIDを相手に伝えてください</div>
+      <div style="font-size:.65rem;color:var(--text-dim);font-family:'JetBrains Mono',monospace;animation:blink .8s infinite;">相手の参加を待っています...</div>
+      <button class="btn danger" style="margin-top:16px;" data-roomid="${roomId}" onclick="this.disabled=true; window._cancelRoom && window._cancelRoom(this.dataset.roomid)">キャンセル</button>
+    </div>`;
+
+  // Wait for guest to join
+  const unsub = onValue(ref(db, `rooms/${roomId}/status`), snap => {
+    if (snap.val() === 'playing') {
+      unsub();
+      get(ref(db, `rooms/${roomId}`)).then(s => {
+        const data = s.val();
+        if (data) {
+          const p = data.puzzle.split('|').map(r => r.split(',').map(Number));
+          startOnlineGame(roomId, p, 'host', data);
+        }
+      });
+    }
+  });
+};
+
+// ══════════════════════════════════
+// CANCEL ROOM (while waiting)
+// ══════════════════════════════════
+window._cancelRoom = async function(roomId) {
+  const id = roomId || currentRoomId;
+  if (!id) return;
+  await remove(ref(db, `rooms/${id}`));
+  currentRoomId = null;
+  myRole = null;
+  const closeBtn = document.getElementById('lobby-close-btn');
+  if (closeBtn) closeBtn.style.display = '';
+  window._showOnlineLobby();
+};
+
+// ══════════════════════════════════
+// JOIN ROOM
+// ══════════════════════════════════
+window._joinRoom = async function() {
+  const input = document.getElementById('room-id-input');
+  if (!input) return;
+  const roomId = input.value.trim().toUpperCase();
+  if (!roomId) return;
+
+  const snap = await get(ref(db, `rooms/${roomId}`));
+  if (!snap.exists()) { alert('ルームが見つかりません'); return; }
+  const data = snap.val();
+  if (data.status !== 'waiting') { alert('このルームには参加できません'); return; }
+  if (data.createdAt && Date.now() - data.createdAt > 3600000) {
+    await remove(ref(db, `rooms/${roomId}`));
+    alert('ルームの有効期限が切れています');
+    return;
+  }
+
+  currentRoomId = roomId;
+  myRole = 'guest';
+  if (window._onlineState) { window._onlineState.roomId = roomId; window._onlineState.role = 'guest'; window._onlineState.mode = true; }
+
+  const puzzle = data.puzzle.split('|').map(r => r.split(',').map(Number));
+  await update(ref(db, `rooms/${roomId}`), { status: 'playing' });
+  startOnlineGame(roomId, puzzle, 'guest', data);
+};
+
+// ══════════════════════════════════
+// START ONLINE GAME
+// ══════════════════════════════════
+function startOnlineGame(roomId, puzzle, role, roomData) {
+  document.getElementById('online-lobby').classList.remove('visible');
+  document.getElementById('start-screen').classList.add('hidden');
+  document.getElementById('result-overlay').classList.remove('visible');
+
+  onlineMode = true;
+  myRole = role;
+  currentRoomId = roomId;
+  if (window._onlineState) { window._onlineState.mode = true; window._onlineState.role = role; window._onlineState.roomId = roomId; }
+
+  onlineTimerSec = roomData.timerSec || 0;
+  onlineHints = roomData.hintsAllowed !== false;
+  const firstRole = roomData.firstRole || 'host';
+  onlineFirstRole = firstRole;
+
+  // Init game state
+  gameBoard = puzzle.map(r => [...r]);
+  initialPuzzle = puzzle.map(r => [...r]);
+  given = puzzle.map(r => r.map(v => v !== 0));
+  placedBy = Array.from({length:9}, () => Array(9).fill(null));
+  selectedCell = null; selectedNum = null;
+  playerMoves = 0; aiMoves = 0;
+  gameOver = false; showHints = false; lastMove = null;
+  moveHistory = []; graphData = []; lastEndReason = '';
+  maxValidMoves = getValidMoves(gameBoard).length;
+  graphData.push({step:0, total:maxValidMoves, who:'start'});
+
+  const iGoFirst = firstRole === role;
+  currentTurn = iGoFirst ? 'player' : 'ai';
+
+  // Update UI labels
+  const pLabel = document.querySelector('#score-player .score-label');
+  const aLabel = document.querySelector('#score-ai .score-label');
+  if (pLabel) pLabel.textContent = iGoFirst ? 'YOU（先手）' : 'YOU（後手）';
+  if (aLabel) aLabel.textContent = iGoFirst ? '相手（後手）' : '相手（先手）';
+  const aiName = document.querySelector('#score-ai .score-name');
+  if (aiName) aiName.textContent = '相手';
+  const aiThinking = document.querySelector('.ai-thinking');
+  if (aiThinking) aiThinking.textContent = '相手が考えています...';
+  const diffChip = document.getElementById('diff-chip');
+  if (diffChip) diffChip.textContent = '';
+  const aiInsight = document.getElementById('ai-insight');
+  if (aiInsight) aiInsight.textContent = '';
+  const undoBtn = document.getElementById('undo-btn');
+  if (undoBtn) { undoBtn.disabled = true; undoBtn.style.display = 'none'; }
+
+  // Hint button - reset regardless of AI difficulty setting
+  const hintBtn = document.getElementById('hint-btn');
+  if (hintBtn) {
+    hintBtn.textContent = onlineHints ? 'ヒント: OFF' : 'ヒント: なし';
+    hintBtn.disabled = !onlineHints;
+    hintBtn.classList.remove('on');
+    hintBtn.style.opacity = '';
+  }
+  // Timer
+  const timerWrap = document.getElementById('timer-wrap');
+  if (timerWrap) timerWrap.classList.toggle('active', onlineTimerSec > 0);
+
+  // Unsubscribe previous listeners before registering new ones
+  unsubAll();
+
+  renderBoard(); renderNumPicker(); updateScorebar(); updateMoveBar();
+
+  if (currentTurn === 'player') {
+    document.getElementById('ai-overlay').classList.remove('visible');
+    setStatus('あなたの番です', 'player-msg');
+    renderHighlights();
+  } else {
+    setStatus('相手の番です...', 'ai-msg');
+    document.getElementById('ai-overlay').classList.add('visible');
+  }
+  if (onlineTimerSec > 0) startOnlineTimer();
+
+  // ── Listen for opponent moves ──
+  // Use a timestamp to ignore moves that existed before this game started
+  const gameStartTime = Date.now();
+  gameListener = onValue(ref(db, `rooms/${currentRoomId}/lastMove`), snap => {
+    const move = snap.val();
+    if (!move || move.role === myRole) return;
+    if (move.ts && move.ts < gameStartTime) return; // ignore old moves
+    applyOnlineMove(move.r, move.c, move.n);
+  });
+
+  // ── Listen for status changes (gameover / abandoned) ──
+  // Capture roomId to prevent stale listener from acting on wrong room
+  const myRoomId = currentRoomId;
+  statusListener = onValue(ref(db, `rooms/${myRoomId}/status`), snap => {
+    if (currentRoomId !== myRoomId) return; // stale listener
+    const status = snap.val();
+    if (!status) return;
+    if (status === 'playing') return; // ignore initial/reset status
+    if (status.startsWith('gameover_') && !gameOver) {
+      const winnerRole = status.replace('gameover_', '');
+      get(ref(db, `rooms/${myRoomId}/endReason`)).then(s => {
+        if (s.val() === 'timeout') lastEndReason = 'timeout';
+        endOnlineGame(winnerRole);
+      });
+    } else if (status === 'abandoned' && !gameOver && onlineMode) {
+      showAbandonedScreen();
+    }
+  });
+}
+
+// ══════════════════════════════════
+// ONLINE TIMER
+// ══════════════════════════════════
+function startOnlineTimer() {
+  stopOnlineTimer();
+  onlineTimerRemain = onlineTimerSec;
+  updateOnlineTimerBar();
+  onlineTimerInterval = setInterval(() => {
+    if (gameOver) return;
+    onlineTimerRemain -= 0.1;
+    if (onlineTimerRemain <= 0) {
+      onlineTimerRemain = 0;
+      updateOnlineTimerBar();
+      if (currentTurn === 'player') onOnlineTimerExpire();
+    } else {
+      updateOnlineTimerBar();
+    }
+  }, 100);
+}
+function stopOnlineTimer() {
+  clearInterval(onlineTimerInterval);
+  onlineTimerInterval = null;
+}
+function resetOnlineTimer() {
+  onlineTimerRemain = onlineTimerSec;
+  updateOnlineTimerBar();
+}
+function updateOnlineTimerBar() {
+  const pct = onlineTimerSec > 0 ? (onlineTimerRemain / onlineTimerSec) * 100 : 100;
+  const bar = document.getElementById('timer-bar');
+  if (!bar) return;
+  bar.style.width = pct + '%';
+  bar.style.background = currentTurn === 'player'
+    ? (pct > 40 ? 'var(--accent-p)' : pct > 20 ? '#e89047' : 'var(--accent-ai)')
+    : 'rgba(136,136,153,.4)';
+}
+function onOnlineTimerExpire() {
+  document.querySelectorAll('#board td:not(.given):not(.filled)').forEach(td => td.classList.add('timeout-flash'));
+  setStatus('時間切れ！負けです', 'warn');
+  selectedCell = null; selectedNum = null;
+  lastEndReason = 'timeout';
+  setTimeout(() => {
+    const winner = myRole === 'host' ? 'guest' : 'host';
+    update(ref(db, `rooms/${currentRoomId}`), { status: `gameover_${winner}`, endReason: 'timeout' });
+    endOnlineGame(winner);
+  }, 600);
+}
+
+// ══════════════════════════════════
+// APPLY OPPONENT MOVE
+// ══════════════════════════════════
+function applyOnlineMove(r, c, n) {
+  document.getElementById('ai-overlay').classList.remove('visible');
+  resetOnlineTimer();
+  const totalBefore = getValidMoves(gameBoard).length;
+  gameBoard[r][c] = n;
+  placedBy[r][c] = 'ai';
+  lastMove = {r, c, who: 'ai'};
+  const totalAfter = getValidMoves(gameBoard).length;
+  moveHistory.push({r,c,n,who:'ai',totalBefore,totalAfter});
+  graphData.push({step:moveHistory.length, total:totalAfter, who:'ai'});
+  aiMoves++;
+  renderBoard();
+  const td = getCell(r,c);
+  if (td) { td.classList.add('just-placed'); setTimeout(()=>td.classList.remove('just-placed'),350); }
+  updateScorebar(); updateMoveBar();
+  playSound('ai_place');
+  currentTurn = 'player';
+  updateScorebar();
+  if (getValidMoves(gameBoard).length === 0) {
+    const winner = myRole === 'host' ? 'guest' : 'host';
+    update(ref(db, `rooms/${currentRoomId}`), { status: `gameover_${winner}` });
+    endOnlineGame(winner);
+    return;
+  }
+  setStatus('あなたの番です', 'player-msg');
+  renderHighlights();
+  if (onlineTimerSec > 0) startOnlineTimer();
+}
+
+// ══════════════════════════════════
+// PLACE NUMBER (online)
+// ══════════════════════════════════
+function onlinePlaceNumber(r, c, n) {
+  resetOnlineTimer();
+  const totalBefore = getValidMoves(gameBoard).length;
+  gameBoard[r][c] = n;
+  placedBy[r][c] = 'player';
+  lastMove = {r, c, who: 'player'};
+  const totalAfter = getValidMoves(gameBoard).length;
+  moveHistory.push({r,c,n,who:'player',totalBefore,totalAfter});
+  graphData.push({step:moveHistory.length, total:totalAfter, who:'player'});
+  playerMoves++;
+  selectedCell = null; selectedNum = null;
+  renderBoard();
+  const td = getCell(r,c);
+  if (td) { td.classList.add('just-placed'); setTimeout(()=>td.classList.remove('just-placed'),350); }
+  updateScorebar(); updateMoveBar();
+  playSound('place');
+  update(ref(db, `rooms/${currentRoomId}`), { lastMove: { r, c, n, role: myRole, ts: Date.now() } });
+  currentTurn = 'ai';
+  updateScorebar();
+  if (getValidMoves(gameBoard).length === 0) {
+    const winner = myRole;
+    update(ref(db, `rooms/${currentRoomId}`), { status: `gameover_${winner}` });
+    endOnlineGame(winner);
+    return;
+  }
+  setStatus('相手の番です...', 'ai-msg');
+  document.getElementById('ai-overlay').classList.add('visible');
+}
+
+// ══════════════════════════════════
+// END ONLINE GAME
+// ══════════════════════════════════
+function endOnlineGame(winnerRole) {
+  if (gameOver) return;
+  gameOver = true;
+  stopOnlineTimer();
+  // Keep statusListener alive? No - game is over, we use rematchFlagUnsub for rematch
+  if (gameListener) { try { gameListener(); } catch(e) {} gameListener = null; }
+
+  const iWon = winnerRole === myRole;
+  if (iWon) wins++; else losses++;
+  updateStats();
+  playSound(iWon ? 'win' : 'lose');
+
+  const timeoutTaunts = window._timeoutTaunts || ['考えすぎ！時間切れです。', 'もたもたしてたら負けましたよ。'];
+  let subMsg;
+  if (lastEndReason === 'timeout') {
+    subMsg = iWon ? '相手が時間切れになりました！' : timeoutTaunts[Math.floor(Math.random() * timeoutTaunts.length)];
+  } else {
+    subMsg = iWon ? '相手が手詰まりになりました！' : 'あなたが手詰まりになりました。';
+  }
+
+  const overlay = document.getElementById('result-overlay');
+  overlay.classList.add('visible');
+  overlay.innerHTML = `
+    <div class="result-title ${iWon?'win':'lose'}">${iWon?'YOU WIN！':'YOU LOSE...'}</div>
+    <div class="result-sub">${subMsg}<br>あなた: ${playerMoves}手 / 相手: ${aiMoves}手</div>
+    <div class="result-stats">通算: ${wins}勝 ${losses}敗</div>
+    <div style="font-size:.6rem;font-family:'JetBrains Mono',monospace;min-height:16px;margin-top:6px;text-align:center;" id="rematch-status"></div>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;justify-content:center;">
+      <button class="btn" onclick="openReplay()">棋譜を見る</button>
+      <button class="btn danger" onclick="leaveRoom()">タイトルに戻る</button>
+      <button class="btn green" id="rematch-btn" onclick="requestRematch()">再戦する</button>
+    </div>`;
+
+  // Start watching opponent's rematch flag
+  startRematchFlagListener();
+}
+
+// ══════════════════════════════════
+// ABANDONED
+// ══════════════════════════════════
+function showAbandonedScreen() {
+  if (gameOver) return;
+  gameOver = true;
+  stopOnlineTimer();
+  unsubAll();
+  const overlay = document.getElementById('result-overlay');
+  overlay.classList.add('visible');
+  overlay.innerHTML = `
+    <style>
+      @keyframes runLoop{0%{transform:translateX(-120px);opacity:0}8%{opacity:1}85%{opacity:1}100%{transform:translateX(380px);opacity:0}}
+      @keyframes bodyWobble{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-8px) rotate(3deg)}}
+      @keyframes speedLine{0%{transform:translateX(400px);opacity:.5}100%{transform:translateX(-100px);opacity:0}}
+      @keyframes sparkleA{0%,100%{opacity:0;transform:scale(0) rotate(0deg)}50%{opacity:1;transform:scale(1) rotate(180deg)}}
+    </style>
+    <div style="width:320px;height:130px;position:relative;overflow:hidden;margin:0 auto 16px;">
+      <div style="position:absolute;height:2px;background:linear-gradient(90deg,rgba(167,139,250,.5),transparent);border-radius:1px;left:0;width:80px;top:35px;animation:speedLine .5s linear infinite;animation-delay:0s;"></div>
+      <div style="position:absolute;height:2px;background:linear-gradient(90deg,rgba(167,139,250,.5),transparent);border-radius:1px;left:0;width:55px;top:50px;animation:speedLine .5s linear infinite;animation-delay:.18s;"></div>
+      <div style="position:absolute;height:2px;background:linear-gradient(90deg,rgba(167,139,250,.5),transparent);border-radius:1px;left:0;width:70px;top:65px;animation:speedLine .5s linear infinite;animation-delay:.08s;"></div>
+      <div style="position:absolute;height:2px;background:linear-gradient(90deg,rgba(167,139,250,.5),transparent);border-radius:1px;left:0;width:45px;top:42px;animation:speedLine .5s linear infinite;animation-delay:.28s;"></div>
+      <div style="position:absolute;bottom:10px;animation:runLoop 1.8s linear infinite;">
+        <div style="animation:bodyWobble .4s ease-in-out infinite;">
+          <svg width="85" height="100" viewBox="0 0 85 100">
+            <defs>
+              <radialGradient id="abgr" cx="50%" cy="35%" r="65%"><stop offset="0%" stop-color="#e0d7ff"/><stop offset="100%" stop-color="#a78bfa"/></radialGradient>
+              <filter id="abglow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            </defs>
+            <path d="M12 44 Q12 8 42 8 Q72 8 72 44 L72 85 Q65 76 58 85 Q51 76 42 85 Q33 76 26 85 Q19 76 12 85 Z" fill="url(#abgr)" filter="url(#abglow)"/>
+            <ellipse cx="30" cy="45" rx="9" ry="10" fill="white"/><ellipse cx="54" cy="45" rx="9" ry="10" fill="white"/>
+            <ellipse cx="32" cy="47" rx="6" ry="7" fill="#0f0035"/><ellipse cx="56" cy="47" rx="6" ry="7" fill="#0f0035"/>
+            <ellipse cx="33" cy="45" rx="2.5" ry="2.5" fill="white"/><ellipse cx="57" cy="45" rx="2.5" ry="2.5" fill="white"/>
+            <ellipse cx="42" cy="63" rx="8" ry="6" fill="#0f0035"/><ellipse cx="42" cy="62" rx="5" ry="3.5" fill="#f472b6"/>
+            <ellipse cx="18" cy="55" rx="8" ry="5" fill="rgba(244,114,182,.35)"/><ellipse cx="66" cy="55" rx="8" ry="5" fill="rgba(244,114,182,.35)"/>
+            <ellipse cx="8" cy="30" rx="4" ry="7" fill="rgba(147,210,255,.75)" transform="rotate(-15 8 30)"/>
+          </svg>
+        </div>
+      </div>
+      <div style="position:absolute;top:15px;left:80px;animation:sparkleA 1.4s ease-in-out infinite;animation-delay:.2s;"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M8 0L9.5 6.5L16 8L9.5 9.5L8 16L6.5 9.5L0 8L6.5 6.5Z" fill="#fbbf24"/></svg></div>
+      <div style="position:absolute;top:8px;left:190px;animation:sparkleA 1.4s ease-in-out infinite;animation-delay:.8s;"><svg width="10" height="10" viewBox="0 0 16 16"><path d="M8 0L9.5 6.5L16 8L9.5 9.5L8 16L6.5 9.5L0 8L6.5 6.5Z" fill="#f472b6"/></svg></div>
+      <div style="position:absolute;top:25px;left:260px;animation:sparkleA 1.4s ease-in-out infinite;animation-delay:1.2s;"><svg width="12" height="12" viewBox="0 0 16 16"><path d="M8 0L9.5 6.5L16 8L9.5 9.5L8 16L6.5 9.5L0 8L6.5 6.5Z" fill="#34d399"/></svg></div>
+    </div>
+    <div style="font-family:'Fredoka One',cursive;font-size:1.8rem;color:#fbbf24;text-shadow:0 0 20px rgba(251,191,36,.5);margin-bottom:8px;">相手が逃走しました！</div>
+    <div style="color:rgba(255,255,255,.6);font-size:.9rem;margin-bottom:24px;">あっという間に消えてしまいました 💨</div>
+    <button class="btn primary" onclick="leaveRoom()">タイトルに戻る</button>`;
+}
+
+// ══════════════════════════════════
+// REMATCH
+// ══════════════════════════════════
+
+// Watch opponent's rematch flag - when they press, update our UI
+function startRematchFlagListener() {
+  if (rematchFlagUnsub) { try { rematchFlagUnsub(); } catch(e) {} rematchFlagUnsub = null; }
+  const rid = currentRoomId;
+  const opponentRole = myRole === 'host' ? 'guest' : 'host';
+
+  rematchFlagUnsub = onValue(ref(db, `rooms/${rid}/rematch_${opponentRole}`), snap => {
+    if (currentRoomId !== rid) return;
+    if (!snap.val()) return;
+
+    const rematchBtn = document.getElementById('rematch-btn');
+    const rematchStatusEl = document.getElementById('rematch-status');
+
+    get(ref(db, `rooms/${rid}/rematch_${myRole}`)).then(s => {
+      if (s.val()) {
+        // Both pressed - start rematch with new room
+        if (rematchStatusEl) { rematchStatusEl.textContent = '再戦開始中...'; rematchStatusEl.style.color = 'var(--valid)'; }
+        if (rematchFlagUnsub) { try { rematchFlagUnsub(); } catch(e) {} rematchFlagUnsub = null; }
+        if (myRole === 'host') {
+          createRematchRoom(rid);
+        } else {
+          watchForNewRoom(rid);
+        }
+      } else {
+        if (rematchBtn) rematchBtn.disabled = false;
+        if (rematchStatusEl) { rematchStatusEl.textContent = '相手が再戦を希望しています！'; rematchStatusEl.style.color = 'var(--valid)'; }
+      }
+    });
+  });
+}
+
+async function createRematchRoom(oldRid) {
+  // Create a fresh new room
+  const newRoomId = genRoomId();
+  const { puzzle } = window._generatePuzzle();
+  const puzzleFlat = puzzle.map(r => r.join(',')).join('|');
+  await set(ref(db, `rooms/${newRoomId}`), {
+    status: 'playing',
+    puzzle: puzzleFlat,
+    firstRole: onlineFirstRole,
+    timerSec: onlineTimerSec,
+    hintsAllowed: onlineHints,
+    lastMove: null,
+    createdAt: Date.now()
+  });
+  // Tell guest the new room ID via old room, then delete old room after a delay
+  await update(ref(db, `rooms/${oldRid}`), { new_room_id: newRoomId });
+  setTimeout(() => remove(ref(db, `rooms/${oldRid}`)), 5000);
+  // Switch to new room and start
+  currentRoomId = newRoomId;
+  if (window._onlineState) { window._onlineState.roomId = newRoomId; }
+  startOnlineGame(newRoomId, puzzle, 'host', {
+    firstRole: onlineFirstRole, timerSec: onlineTimerSec, hintsAllowed: onlineHints
+  });
+}
+
+function watchForNewRoom(oldRid) {
+  const unsub = onValue(ref(db, `rooms/${oldRid}/new_room_id`), snap => {
+    const newRoomId = snap.val();
+    if (!newRoomId) return;
+    unsub();
+    get(ref(db, `rooms/${newRoomId}`)).then(s => {
+      const data = s.val();
+      if (!data) return;
+      const puzzle = data.puzzle.split('|').map(r => r.split(',').map(Number));
+      currentRoomId = newRoomId;
+      if (window._onlineState) { window._onlineState.roomId = newRoomId; }
+      startOnlineGame(newRoomId, puzzle, 'guest', data);
+    });
+  });
+}
+
+window._requestRematch = function() {
+  if (!currentRoomId) return;
+  const rid = currentRoomId;
+  const rematchBtn = document.getElementById('rematch-btn');
+  if (rematchBtn && rematchBtn.disabled) return;
+  if (rematchBtn) rematchBtn.disabled = true;
+  const rematchStatusEl = document.getElementById('rematch-status');
+  if (rematchStatusEl) { rematchStatusEl.textContent = '相手の返答を待っています...'; rematchStatusEl.style.color = 'var(--text-mid)'; }
+
+  const opponentRole = myRole === 'host' ? 'guest' : 'host';
+  update(ref(db, `rooms/${rid}`), { [`rematch_${myRole}`]: true }).then(() => {
+    get(ref(db, `rooms/${rid}/rematch_${opponentRole}`)).then(s => {
+      if (s.val()) {
+        if (rematchStatusEl) { rematchStatusEl.textContent = '再戦開始中...'; rematchStatusEl.style.color = 'var(--valid)'; }
+        if (rematchFlagUnsub) { try { rematchFlagUnsub(); } catch(e) {} rematchFlagUnsub = null; }
+        if (myRole === 'host') createRematchRoom(rid);
+        else watchForNewRoom(rid);
+      }
+    });
+  });
+};
+
+// ══════════════════════════════════
+// CLEANUP & LEAVE
+// ══════════════════════════════════
+function cleanupOnline() {
+  stopOnlineTimer();
+  unsubAll();
+  if (currentRoomId && onlineMode) {
+    const rid = currentRoomId;
+    currentRoomId = null;
+    onlineMode = false;
+    myRole = null;
+    if (window._onlineState) { window._onlineState.mode = false; window._onlineState.role = null; window._onlineState.roomId = null; }
+    // Notify opponent then delete room
+    update(ref(db, `rooms/${rid}`), { status: 'abandoned' }).then(() => {
+      setTimeout(() => {
+        get(ref(db, `rooms/${rid}/status`)).then(snap => {
+          if (snap.val() === 'abandoned') remove(ref(db, `rooms/${rid}`));
+        });
+      }, 2000);
+    });
+  } else {
+    onlineMode = false;
+    myRole = null;
+    if (window._onlineState) { window._onlineState.mode = false; window._onlineState.role = null; window._onlineState.roomId = null; }
+  }
+}
+window._cleanupOnline = cleanupOnline;
+
+window._leaveRoom = function() {
+  cleanupOnline();
+  document.getElementById('result-overlay').classList.remove('visible');
+  document.getElementById('replay-overlay').classList.remove('visible');
+  document.getElementById('ai-overlay').classList.remove('visible');
+  document.getElementById('start-screen').classList.remove('hidden');
+  // Restore default UI
+  const pLabel = document.querySelector('#score-player .score-label');
+  const aLabel = document.querySelector('#score-ai .score-label');
+  if (pLabel) pLabel.textContent = 'PLAYER';
+  if (aLabel) aLabel.textContent = 'AI';
+  const aiName = document.querySelector('#score-ai .score-name');
+  if (aiName) aiName.textContent = 'CPU';
+  const aiThinking = document.querySelector('.ai-thinking');
+  if (aiThinking) aiThinking.textContent = 'AI THINKING...';
+  const hintBtn = document.getElementById('hint-btn');
+  if (hintBtn) { hintBtn.disabled = false; hintBtn.textContent = 'ヒント: OFF'; hintBtn.classList.remove('on'); }
+  const undoBtn2 = document.getElementById('undo-btn');
+  if (undoBtn2) { undoBtn2.style.display = ''; undoBtn2.disabled = true; }
+};
+
+// ══════════════════════════════════
+// INPUT HANDLER PATCHES
+// ══════════════════════════════════
+const _origOnCellClick = window.onCellClick;
+const _origOnNumClick = window.onNumClick;
+
+window.onCellClick = function(r, c) {
+  if (onlineMode) {
+    if (gameOver || currentTurn !== 'player') return;
+    if (given[r][c] || gameBoard[r][c] !== 0) return;
+    if (selectedNum !== null) {
+      if (isValid(gameBoard,r,c,selectedNum)) onlinePlaceNumber(r,c,selectedNum);
+      else setStatus(`そこには ${selectedNum} は入りません`,'');
+      return;
+    }
+    selectedCell = (selectedCell&&selectedCell[0]===r&&selectedCell[1]===c) ? null : [r,c];
+    renderHighlights();
+  } else {
+    if (_origOnCellClick) _origOnCellClick(r, c);
+  }
+};
+
+window.onNumClick = function(n) {
+  if (onlineMode) {
+    if (gameOver || currentTurn !== 'player') return;
+    if (selectedNum === n) { selectedNum = null; renderHighlights(); return; }
+    selectedNum = n;
+    if (selectedCell) {
+      const [r,c] = selectedCell;
+      if (gameBoard[r][c] === 0) {
+        if (isValid(gameBoard,r,c,n)) { onlinePlaceNumber(r,c,n); return; }
+        else setStatus(`そこには ${n} は入りません`,'');
+      }
+    }
+    renderHighlights();
+  } else {
+    if (_origOnNumClick) _origOnNumClick(n);
+  }
+};
+</script>
+</body>
+</html>
